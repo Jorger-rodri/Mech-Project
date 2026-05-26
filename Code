@@ -30,15 +30,15 @@ def density_at_altitude(z):
     z = max(z, 0.0)
     z_km = z / 1000.0
     if z_km < 11: # Troposphere (0-11 km) - linear temperature lapse
-        T = T0 - L * z
-        p = 101325 * (T / T0) ** (g0 / (L * R_air))
-        rho = p / (R_air * T)
+        T = T0_atm - L * z
+        p = 101325 * (T / T0_atm) ** (g0 / (L * R_air))
+        return p / (R_air * T)
     elif z_km < 20: # Lower stratosphere (11-20 km) - constant temperature
         T = 216.65 # K, constant
         p_11 = 22632.1 # Pa, pressure at 11 km
         h = z - 11000
         p = p_11 * np.exp(-g0 * h / (R_air * T))
-        rho = p / (R_air * T)
+        return p / (R_air * T)
     elif z_km < 32: # Upper stratosphere (20-32 km) - linear temperature increase
         T = 216.65 + 0.001 * (z - 20000)
         p_20 = 5474.89 # Pa, pressure at 20 km
@@ -46,37 +46,38 @@ def density_at_altitude(z):
         # Average temperature for integration
         T_avg = (216.65 + T) / 2
         p = p_20 * np.exp(-g0 * h / (R_air * T_avg))
-        rho = p / (R_air * T)
+        return p / (R_air * T)
     elif z_km < 47: # Mesosphere (32-47 km) - linear temperature increase
         T = 228.65 + 0.0028 * (z - 32000)
         p_32 = 868.02 # Pa, pressure at 32 km
         h = z - 32000
         T_avg = (228.65 + T) / 2
         p = p_32 * np.exp(-g0 * h / (R_air * T_avg))
-        rho = p / (R_air * T)
+        return p / (R_air * T)
     elif z_km < 51: # Upper mesosphere (47-51 km) - constant temperature
         T = 270.65 # K
         p_47 = 110.91 # Pa, pressure at 47 km
         h = z - 47000
         p = p_47 * np.exp(-g0 * h / (R_air * T))
-        rho = p / (R_air * T)
+        return p / (R_air * T)
     elif z_km < 71: # Lower thermosphere (51-71 km) - linear temperature increase
         T = 270.65 + 0.0028 * (z - 51000)
         p_51 = 66.939 # Pa, pressure at 51 km
         h = z - 51000
         T_avg = (270.65 + T) / 2
         p = p_51 * np.exp(-g0 * h / (R_air * T_avg))
-        rho = p / (R_air * T)
+        return p / (R_air * T)
     elif z_km < 85: # Upper thermosphere (71-85 km) - linear temperature increase
         T = 270.65 + 0.002 * (z - 71000) # Actually from 71-85 km, temp increases
         p_71 = 3.9564 # Pa, pressure at 71 km
         h = z - 71000
         T_avg = (270.65 + T) / 2
         p = p_71 * np.exp(-g0 * h / (R_air * T_avg))
-        rho = p / (R_air * T)
+        return p / (R_air * T)
     else: # Very low density for high altitudes
         # Exponential model for above 85 km
-        rho = 1.5e-5 * np.exp(-(z - 85000) / 6000)
+        return 1.5e-5 * np.exp(-(z - 85000) / 6000)
+        
 # ============================================================
 # SIMULACIÓN CON EULER
 # ============================================================
@@ -301,3 +302,4 @@ for i, (label, func) in enumerate(btn_data):
 # Mostrar gráfica inicial
 plot_altitud()
 plt.show()
+
