@@ -1,305 +1,462 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, Slider
 from mpl_toolkits.mplot3d import Axes3D
 
 # ============================================================
 # CONSTANTES Y PARÁMETROS
 # ============================================================
-GM    = 3.99e14
-R_E   = 6.378e6
-g0    = 9.8
-omega = 7.27e-5
-m0    = 100.0
-mp    = 10.0
-T_def = 1500.0
-Isp   = 100.0
-Cd    = 0.5
-Aref  = 0.1
-rho0  = 1.225
-H     = 8500.0
+GM     = 3.99e14
+R_E    = 6.378e6
+g0     = 9.8
+omega  = 7.27e-5
+m0     = 100.0
+mp     = 10.0
+T_def  = 1500.0
+Isp    = 100.0
+Cd     = 0.5
+Aref   = 0.1
+rho0   = 1.225
+H      = 8500.0
 T0_atm = 288.15
 L      = 0.0065
 R_air  = 287.05
 
 # ============================================================
-# ATMÓSFERA ISA
+# ATMÓSFERA ISA  — CORREGIDA: usa T0_atm y hace return rho
 # ============================================================
 def density_at_altitude(z):
     z = max(z, 0.0)
     z_km = z / 1000.0
-    if z_km < 11: # Troposphere (0-11 km) - linear temperature lapse
-        T = T0_atm - L * z
-        p = 101325 * (T / T0_atm) ** (g0 / (L * R_air))
-        return p / (R_air * T)
-    elif z_km < 20: # Lower stratosphere (11-20 km) - constant temperature
-        T = 216.65 # K, constant
-        p_11 = 22632.1 # Pa, pressure at 11 km
-        h = z - 11000
-        p = p_11 * np.exp(-g0 * h / (R_air * T))
-        return p / (R_air * T)
-    elif z_km < 32: # Upper stratosphere (20-32 km) - linear temperature increase
-        T = 216.65 + 0.001 * (z - 20000)
-        p_20 = 5474.89 # Pa, pressure at 20 km
-        h = z - 20000
-        # Average temperature for integration
-        T_avg = (216.65 + T) / 2
-        p = p_20 * np.exp(-g0 * h / (R_air * T_avg))
-        return p / (R_air * T)
-    elif z_km < 47: # Mesosphere (32-47 km) - linear temperature increase
-        T = 228.65 + 0.0028 * (z - 32000)
-        p_32 = 868.02 # Pa, pressure at 32 km
-        h = z - 32000
-        T_avg = (228.65 + T) / 2
-        p = p_32 * np.exp(-g0 * h / (R_air * T_avg))
-        return p / (R_air * T)
-    elif z_km < 51: # Upper mesosphere (47-51 km) - constant temperature
-        T = 270.65 # K
-        p_47 = 110.91 # Pa, pressure at 47 km
-        h = z - 47000
-        p = p_47 * np.exp(-g0 * h / (R_air * T))
-        return p / (R_air * T)
-    elif z_km < 71: # Lower thermosphere (51-71 km) - linear temperature increase
-        T = 270.65 + 0.0028 * (z - 51000)
-        p_51 = 66.939 # Pa, pressure at 51 km
-        h = z - 51000
-        T_avg = (270.65 + T) / 2
-        p = p_51 * np.exp(-g0 * h / (R_air * T_avg))
-        return p / (R_air * T)
-    elif z_km < 85: # Upper thermosphere (71-85 km) - linear temperature increase
-        T = 270.65 + 0.002 * (z - 71000) # Actually from 71-85 km, temp increases
-        p_71 = 3.9564 # Pa, pressure at 71 km
-        h = z - 71000
-        T_avg = (270.65 + T) / 2
-        p = p_71 * np.exp(-g0 * h / (R_air * T_avg))
-        return p / (R_air * T)
-    else: # Very low density for high altitudes
-        # Exponential model for above 85 km
-        return 1.5e-5 * np.exp(-(z - 85000) / 6000)
-        
+
+    if z_km < 11:                          # Tropósfera 0-11 km
+        T   = T0_atm - L * z              # BUG 1 CORREGIDO: T0_atm
+        p   = 101325.0 * (T / T0_atm) ** (g0 / (L * R_air))
+        rho = p / (R_air * T)
+
+    elif z_km < 20:                        # Estratósfera baja 11-20 km
+        T     = 216.65
+        p_11  = 22632.1
+        h     = z - 11000.0
+        p     = p_11 * np.exp(-g0 * h / (R_air * T))
+        rho   = p / (R_air * T)
+
+    elif z_km < 32:                        # Estratósfera alta 20-32 km
+        T     = 216.65 + 0.001 * (z - 20000.0)
+        p_20  = 5474.89
+        h     = z - 20000.0
+        T_avg = (216.65 + T) / 2.0
+        p     = p_20 * np.exp(-g0 * h / (R_air * T_avg))
+        rho   = p / (R_air * T)
+
+    elif z_km < 47:                        # Mesósfera 32-47 km
+        T     = 228.65 + 0.0028 * (z - 32000.0)
+        p_32  = 868.02
+        h     = z - 32000.0
+        T_avg = (228.65 + T) / 2.0
+        p     = p_32 * np.exp(-g0 * h / (R_air * T_avg))
+        rho   = p / (R_air * T)
+
+    elif z_km < 51:                        # Mesósfera alta 47-51 km
+        T     = 270.65
+        p_47  = 110.91
+        h     = z - 47000.0
+        p     = p_47 * np.exp(-g0 * h / (R_air * T))
+        rho   = p / (R_air * T)
+
+    elif z_km < 71:                        # Termósfera baja 51-71 km
+        T     = 270.65 + 0.0028 * (z - 51000.0)
+        p_51  = 66.939
+        h     = z - 51000.0
+        T_avg = (270.65 + T) / 2.0
+        p     = p_51 * np.exp(-g0 * h / (R_air * T_avg))
+        rho   = p / (R_air * T)
+
+    elif z_km < 85:                        # Termósfera alta 71-85 km
+        T     = 270.65 + 0.002 * (z - 71000.0)
+        p_71  = 3.9564
+        h     = z - 71000.0
+        T_avg = (270.65 + T) / 2.0
+        p     = p_71 * np.exp(-g0 * h / (R_air * T_avg))
+        rho   = p / (R_air * T)
+
+    else:                                  # > 85 km: modelo exponencial
+        rho = 1.5e-5 * np.exp(-(z - 85000.0) / 6000.0)
+
+    return rho   # BUG 2-3 CORREGIDO: return único fuera del if/elif
+
+
 # ============================================================
-# SIMULACIÓN CON EULER
+# SIMULACIÓN CON EULER  — CORREGIDA: ventana ciega & return
 # ============================================================
-def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None, use_ISA=True):
+def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None,
+             use_ISA=True, angle_deg=5.0):
     if m_propellant is None:
-        m_propellant = m0 - mp
+        m_propellant = m0 - mp            # 90 kg por defecto
+
     t_burnout = m_propellant * g0 * Isp / T_thrust
-    dt = 0.1; tfinal = 600.0
-    t_arr = np.arange(0, tfinal, dt)
-    N = len(t_arr)
-    pos = np.zeros((N, 3))
-    vel = np.zeros((N, 3))
-    mass = np.zeros(N)
+    dt        = 0.1
+    tfinal    = 600.0
+    t_arr     = np.arange(0, tfinal, dt)
+    N         = len(t_arr)
+
+    pos      = np.zeros((N, 3))
+    vel      = np.zeros((N, 3))
+    mass     = np.zeros(N)
     drag_arr = np.zeros(N)
-    angle_rad = np.radians(5.0)
-    pos[0] = [0.0, 0.0, 0.0]
-    vel[0] = [np.sin(angle_rad)*10.0, 0.0, np.cos(angle_rad)*10.0]
-    mass[0] = m0
+
+    # Ángulo de inclinación respecto a la vertical
+    angle_rad = np.radians(angle_deg)
+    v0        = 10.0
+    pos[0]    = [0.0, 0.0, 0.0]
+    vel[0]    = [np.sin(angle_rad) * v0, 0.0, np.cos(angle_rad) * v0]
+    mass[0]   = m0
+
     omega_vec = np.array([0.0, 0.0, omega_sim])
-    idx_land = N - 1
+    idx_land  = N - 1
+
     for i in range(1, N):
-        z_prev = pos[i-1, 2]; v_prev = vel[i-1]; m_prev = mass[i-1]; t_prev = t_arr[i-1]
-        g_z = -GM / (R_E + max(z_prev, 0))**2
+        z_prev = pos[i-1, 2]
+        v_prev = vel[i-1]
+        m_prev = mass[i-1]
+        t_prev = t_arr[i-1]
+
+        # Gravedad variable con altitud
+        g_z    = -GM / (R_E + max(z_prev, 0.0)) ** 2
         a_grav = np.array([0.0, 0.0, g_z])
-        rho = density_at_altitude(z_prev) if use_ISA else rho0 * np.exp(-z_prev / H)
+
+        # Arrastre
+        rho   = density_at_altitude(z_prev) if use_ISA else rho0 * np.exp(-z_prev / H)
         v_mag = np.linalg.norm(v_prev)
         if v_mag > 0:
-            a_drag = -0.5 * Cd * Aref * rho * v_mag * v_prev / m_prev
-            drag_force = 0.5 * Cd * Aref * rho * v_mag**2
+            a_drag    = -0.5 * Cd * Aref * rho * v_mag * v_prev / m_prev
+            drag_force = 0.5 * Cd * Aref * rho * v_mag ** 2
         else:
-            a_drag = np.zeros(3); drag_force = 0.0
+            a_drag     = np.zeros(3)
+            drag_force = 0.0
         drag_arr[i-1] = drag_force
-        burning = t_prev < t_burnout
-        a_thrust = np.array([0.0, 0.0, T_thrust / m_prev]) if burning else np.zeros(3)
-        mdot = -T_thrust / (g0 * Isp) if burning else 0.0
+
+        # Empuje en dirección de la velocidad inicial (ángulo fijo)
+        burning  = t_prev < t_burnout
+        thrust_dir = np.array([np.sin(angle_rad), 0.0, np.cos(angle_rad)])
+        a_thrust = (T_thrust / m_prev) * thrust_dir if burning else np.zeros(3)
+        mdot     = -T_thrust / (g0 * Isp) if burning else 0.0
+
+        # Coriolis
         a_coriolis = -2.0 * np.cross(omega_vec, v_prev)
+
         a_total = a_grav + a_drag + a_thrust + a_coriolis
-        vel[i] = v_prev + a_total * dt
-        pos[i] = pos[i-1] + v_prev * dt
+        vel[i]  = v_prev + a_total * dt
+        pos[i]  = pos[i-1] + v_prev * dt
         mass[i] = max(m_prev + mdot * dt, mp)
-        if i > 100 and pos[i, 2] <= 0:
-            idx_land = i; break
-    t_out   = t_arr[:idx_land+1]
-    pos_out = pos[:idx_land+1]
-    vel_out = vel[:idx_land+1]
-    drag_out = drag_arr[:idx_land+1]
+
+        # BUG 5 CORREGIDO: detectar aterrizaje desde i=2 (0.2 s)
+        if i > 2 and pos[i, 2] <= 0.0:
+            idx_land = i
+            break
+
+    t_out    = t_arr[:idx_land + 1]
+    pos_out  = pos[:idx_land + 1]
+    vel_out  = vel[:idx_land + 1]
+    drag_out = drag_arr[:idx_land + 1]
+
     return {
-        "t": t_out, "pos": pos_out,
-        "vel": np.linalg.norm(vel_out, axis=1),
-        "drag": drag_out,
-        "alt": pos_out[:, 2],
+        "t":       t_out,
+        "pos":     pos_out,
+        "vel":     np.linalg.norm(vel_out, axis=1),
+        "drag":    drag_out,
+        "alt":     pos_out[:, 2],
         "max_alt": np.max(pos_out[:, 2]),
-        "tf": t_out[-1],
-        "xf": pos_out[-1, 0], "yf": pos_out[-1, 1]
+        "tf":      t_out[-1],
+        "xf":      pos_out[-1, 0],
+        "yf":      pos_out[-1, 1],
     }
 
-# ============================================================
-# EJECUTAR SIMULACIONES
-# ============================================================
-print("Ejecutando simulaciones...")
-base   = simulate()
-noC    = simulate(omega_sim=0.0)
-T1000  = simulate(T_thrust=1000.0)
-T3000  = simulate(T_thrust=3000.0)
-expAtm = simulate(use_ISA=False)
-mp10   = simulate(m_propellant=10.0)
-mp50   = simulate(m_propellant=50.0)
-mp90   = simulate(m_propellant=90.0)
-print(f"  Altura máxima:   {base['max_alt']/1000:.2f} km")
-print(f"  Tiempo de vuelo: {base['tf']:.1f} s")
-print(f"  Rango:           {np.sqrt(base['xf']**2 + base['yf']**2):.2f} m")
 
 # ============================================================
-# DASHBOARD CON BOTONES
+# ESTADO GLOBAL
 # ============================================================
-fig = plt.figure(figsize=(12, 7))
-fig.patch.set_facecolor('#f8f8f8')
-fig.suptitle('Dashboard — Trayectoria 3D del Cohete', fontsize=14, fontweight='bold', y=0.98)
+current_angle = 5.0   # grados
+current_view  = "altitud"
 
-# Área principal para la gráfica
-ax_main = fig.add_axes([0.08, 0.12, 0.88, 0.78])
-ax_main.set_visible(False)
-ax_3d = None  # se crea al necesitarse
+# Simulaciones que dependen del ángulo (se recalculan con el slider)
+sims = {}
 
-# ---- Funciones de cada gráfica ----
+def run_all_sims(angle_deg):
+    global sims
+    sims["base"]   = simulate(angle_deg=angle_deg)
+    sims["noC"]    = simulate(omega_sim=0.0, angle_deg=angle_deg)
+    sims["T1000"]  = simulate(T_thrust=1000.0, angle_deg=angle_deg)
+    sims["T3000"]  = simulate(T_thrust=3000.0, angle_deg=angle_deg)
+    sims["expAtm"] = simulate(use_ISA=False, angle_deg=angle_deg)
+    sims["mp10"]   = simulate(m_propellant=10.0, angle_deg=angle_deg)
+    sims["mp50"]   = simulate(m_propellant=50.0, angle_deg=angle_deg)
+    sims["mp90"]   = simulate(m_propellant=90.0, angle_deg=angle_deg)
+
+print("Ejecutando simulaciones iniciales...")
+run_all_sims(current_angle)
+print(f"  Altura máxima:   {sims['base']['max_alt']/1000:.2f} km")
+print(f"  Tiempo de vuelo: {sims['base']['tf']:.1f} s")
+print(f"  Rango:           {np.sqrt(sims['base']['xf']**2 + sims['base']['yf']**2):.2f} m")
+
+
+# ============================================================
+# DASHBOARD
+# ============================================================
+fig = plt.figure(figsize=(13, 7.5))
+fig.patch.set_facecolor('#1a1a2e')
+
+fig.suptitle('Dashboard — Simulación de Trayectoria de Cohete',
+             fontsize=13, fontweight='bold', color='white', y=0.98)
+
+# Área principal (2D) y slot 3D
+ax_main = fig.add_axes([0.07, 0.18, 0.89, 0.74])
+ax_main.set_facecolor('#0f0f23')
+ax_3d   = None
+
+# Info box (stats en tiempo real)
+ax_info = fig.add_axes([0.07, 0.10, 0.89, 0.065])
+ax_info.axis('off')
+info_text = ax_info.text(
+    0.5, 0.5, "", transform=ax_info.transAxes,
+    ha='center', va='center', fontsize=10, color='#aaddff',
+    fontfamily='monospace'
+)
+
+def update_info():
+    b = sims["base"]
+    rng = np.sqrt(b["xf"]**2 + b["yf"]**2)
+    info_text.set_text(
+        f"Ángulo: {current_angle:.1f}°  |  "
+        f"Alt. máx: {b['max_alt']/1000:.2f} km  |  "
+        f"Tiempo vuelo: {b['tf']:.1f} s  |  "
+        f"Rango: {rng:.1f} m  |  "
+        f"Vel. máx: {np.max(b['vel']):.1f} m/s"
+    )
+
+# ---- Helpers de estilo ----
+COLORS = {
+    "base":   "#4fc3f7",
+    "T1000":  "#ef5350",
+    "T3000":  "#66bb6a",
+    "noC":    "#ef5350",
+    "expAtm": "#ef5350",
+    "mp10":   "#4fc3f7",
+    "mp50":   "#66bb6a",
+    "mp90":   "#ef5350",
+}
+
+def style_ax(ax, xlabel, ylabel, title):
+    ax.set_facecolor('#0f0f23')
+    ax.tick_params(colors='#8899aa', labelsize=9)
+    ax.xaxis.label.set_color('#8899aa')
+    ax.yaxis.label.set_color('#8899aa')
+    ax.set_xlabel(xlabel, fontsize=10)
+    ax.set_ylabel(ylabel, fontsize=10)
+    ax.set_title(title, fontsize=11, color='white', pad=6)
+    ax.grid(True, alpha=0.15, color='white')
+    for spine in ax.spines.values():
+        spine.set_edgecolor('#334455')
+
 def clear_main():
     global ax_3d
+    # BUG 6 CORREGIDO: eliminar ejes 3D correctamente
+    if ax_3d is not None:
+        fig.delaxes(ax_3d)
+        ax_3d = None
     ax_main.cla()
     ax_main.set_visible(True)
-    if ax_3d is not None:
-        ax_3d.remove()
-        ax_3d = None
+    ax_main.set_facecolor('#0f0f23')
 
+# ---- Funciones de cada vista ----
 def plot_altitud(event=None):
+    global current_view
+    current_view = "altitud"
     clear_main()
-    ax_main.plot(base["t"], base["alt"]/1000, 'steelblue', lw=2)
-    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
-    ax_main.set_ylabel('Altitud (km)', fontsize=12)
-    ax_main.set_title('Altitud vs Tiempo', fontsize=13)
-    ax_main.grid(True, alpha=0.4)
-    ax_main.fill_between(base["t"], base["alt"]/1000, alpha=0.15, color='steelblue')
+    b = sims["base"]
+    ax_main.plot(b["t"], b["alt"] / 1000, color=COLORS["base"], lw=2)
+    ax_main.fill_between(b["t"], b["alt"] / 1000, alpha=0.12, color=COLORS["base"])
+    style_ax(ax_main, 'Tiempo (s)', 'Altitud (km)', 'Altitud vs Tiempo')
+    update_info()
     fig.canvas.draw_idle()
 
 def plot_velocidad(event=None):
+    global current_view
+    current_view = "velocidad"
     clear_main()
-    ax_main.plot(base["t"], base["vel"], color='seagreen', lw=2)
-    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
-    ax_main.set_ylabel('Velocidad (m/s)', fontsize=12)
-    ax_main.set_title('Velocidad vs Tiempo', fontsize=13)
-    ax_main.grid(True, alpha=0.4)
+    b = sims["base"]
+    ax_main.plot(b["t"], b["vel"], color='#a5d6a7', lw=2)
+    style_ax(ax_main, 'Tiempo (s)', 'Velocidad (m/s)', 'Velocidad vs Tiempo')
+    update_info()
     fig.canvas.draw_idle()
 
 def plot_arrastre(event=None):
+    global current_view
+    current_view = "arrastre"
     clear_main()
-    ax_main.plot(base["t"], base["drag"], color='tomato', lw=2)
-    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
-    ax_main.set_ylabel('Arrastre (N)', fontsize=12)
-    ax_main.set_title('Arrastre aerodinámico vs Tiempo', fontsize=13)
-    ax_main.grid(True, alpha=0.4)
+    b = sims["base"]
+    ax_main.plot(b["t"], b["drag"], color='#ef9a9a', lw=2)
+    style_ax(ax_main, 'Tiempo (s)', 'Arrastre (N)', 'Arrastre aerodinámico vs Tiempo')
+    update_info()
     fig.canvas.draw_idle()
 
 def plot_xy(event=None):
+    global current_view
+    current_view = "xy"
     clear_main()
-    ax_main.plot(base["pos"][:, 0], base["pos"][:, 1], color='orchid', lw=2)
-    ax_main.set_xlabel('x — Este (m)', fontsize=12)
-    ax_main.set_ylabel('y — Norte (m)', fontsize=12)
-    ax_main.set_title('Proyección horizontal de la trayectoria', fontsize=13)
-    ax_main.grid(True, alpha=0.4)
+    b = sims["base"]
+    ax_main.plot(b["pos"][:, 0], b["pos"][:, 1], color='#ce93d8', lw=2)
+    ax_main.scatter([0], [0], color='#66bb6a', s=60, zorder=5, label='Inicio')
+    ax_main.scatter([b["xf"]], [b["yf"]], color='#ef5350', s=60, zorder=5, label='Aterrizaje')
+    ax_main.legend(fontsize=9, facecolor='#0f0f23', labelcolor='white', edgecolor='#334455')
+    style_ax(ax_main, 'x — Este (m)', 'y — Norte (m)', 'Proyección horizontal XY')
+    update_info()
     fig.canvas.draw_idle()
 
 def plot_3d(event=None):
-    global ax_3d
+    global ax_3d, current_view
+    current_view = "3d"
     ax_main.set_visible(False)
-    if ax_3d is None:
-        ax_3d = fig.add_axes([0.08, 0.12, 0.88, 0.78], projection='3d')
-    ax_3d.cla()
-    p = base["pos"]
-    ax_3d.plot(p[:, 0], p[:, 1], p[:, 2]/1000, color='steelblue', lw=2, label='Trayectoria')
-    ax_3d.scatter([0], [0], [0], color='green', s=60, zorder=5, label='Inicio')
-    ax_3d.scatter([p[-1,0]], [p[-1,1]], [p[-1,2]/1000], color='red', s=60, zorder=5, label='Aterrizaje')
-    ax_3d.set_xlabel('x — Este (m)', fontsize=10)
-    ax_3d.set_ylabel('y — Norte (m)', fontsize=10)
-    ax_3d.set_zlabel('Altitud (km)', fontsize=10)
-    ax_3d.set_title('Trayectoria 3D del cohete', fontsize=13)
-    ax_3d.legend(fontsize=9)
+    if ax_3d is not None:
+        fig.delaxes(ax_3d)
+    ax_3d = fig.add_axes([0.07, 0.18, 0.89, 0.74], projection='3d')
+    ax_3d.set_facecolor('#0f0f23')
+    ax_3d.patch.set_facecolor('#0f0f23')
+    p = sims["base"]["pos"]
+    ax_3d.plot(p[:, 0], p[:, 1], p[:, 2] / 1000,
+               color=COLORS["base"], lw=2, label='Trayectoria')
+    ax_3d.scatter([0], [0], [0], color='#66bb6a', s=60, zorder=5, label='Inicio')
+    ax_3d.scatter([p[-1, 0]], [p[-1, 1]], [p[-1, 2] / 1000],
+                  color='#ef5350', s=60, zorder=5, label='Aterrizaje')
+    ax_3d.set_xlabel('x — Este (m)', fontsize=9, color='#8899aa')
+    ax_3d.set_ylabel('y — Norte (m)', fontsize=9, color='#8899aa')
+    ax_3d.set_zlabel('Altitud (km)', fontsize=9, color='#8899aa')
+    ax_3d.set_title('Trayectoria 3D del cohete', fontsize=11, color='white')
+    ax_3d.tick_params(colors='#8899aa', labelsize=8)
+    ax_3d.legend(fontsize=9, facecolor='#0f0f23', labelcolor='white', edgecolor='#334455')
+    update_info()
     fig.canvas.draw_idle()
 
 def plot_empuje(event=None):
+    global current_view
+    current_view = "empuje"
     clear_main()
-    ax_main.plot(base["t"],  base["alt"]/1000,  color='steelblue', lw=2, label='T = 1500 N (base)')
-    ax_main.plot(T1000["t"], T1000["alt"]/1000, color='tomato',    lw=2, ls='--', label='T = 1000 N')
-    ax_main.plot(T3000["t"], T3000["alt"]/1000, color='seagreen',  lw=2, ls='-.',  label='T = 3000 N')
-    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
-    ax_main.set_ylabel('Altitud (km)', fontsize=12)
-    ax_main.set_title('Tarea 1 — Efecto del empuje', fontsize=13)
-    ax_main.legend(fontsize=11)
-    ax_main.grid(True, alpha=0.4)
+    b, t1, t3 = sims["base"], sims["T1000"], sims["T3000"]
+    ax_main.plot(b["t"],  b["alt"]  / 1000, color=COLORS["base"],  lw=2,       label='T = 1500 N (base)')
+    ax_main.plot(t1["t"], t1["alt"] / 1000, color=COLORS["T1000"], lw=2, ls='--', label='T = 1000 N')
+    ax_main.plot(t3["t"], t3["alt"] / 1000, color=COLORS["T3000"], lw=2, ls='-.',  label='T = 3000 N')
+    ax_main.legend(fontsize=9, facecolor='#0f0f23', labelcolor='white', edgecolor='#334455')
+    style_ax(ax_main, 'Tiempo (s)', 'Altitud (km)', 'T1 — Efecto del empuje')
+    update_info()
     fig.canvas.draw_idle()
 
 def plot_coriolis(event=None):
+    global current_view
+    current_view = "coriolis"
     clear_main()
-    ax_main.plot(base["pos"][:, 0], base["pos"][:, 1], color='steelblue', lw=2, label='Con Coriolis')
-    ax_main.plot(noC["pos"][:,  0], noC["pos"][:,  1], color='tomato',    lw=2, ls='--', label='Sin Coriolis (ω=0)')
-    ax_main.set_xlabel('x — Este (m)', fontsize=12)
-    ax_main.set_ylabel('y — Norte (m)', fontsize=12)
-    ax_main.set_title('Tarea 2 — Efecto Coriolis', fontsize=13)
-    ax_main.legend(fontsize=11)
-    ax_main.grid(True, alpha=0.4)
+    b, nc = sims["base"], sims["noC"]
+    ax_main.plot(b["pos"][:, 0],  b["pos"][:, 1],  color=COLORS["base"], lw=2,       label='Con Coriolis')
+    ax_main.plot(nc["pos"][:, 0], nc["pos"][:, 1], color=COLORS["noC"],  lw=2, ls='--', label='Sin Coriolis (ω=0)')
+    ax_main.legend(fontsize=9, facecolor='#0f0f23', labelcolor='white', edgecolor='#334455')
+    style_ax(ax_main, 'x — Este (m)', 'y — Norte (m)', 'T2 — Efecto Coriolis')
+    update_info()
     fig.canvas.draw_idle()
 
 def plot_atmosfera(event=None):
+    global current_view
+    current_view = "atmosfera"
     clear_main()
-    ax_main.plot(base["t"],   base["drag"],   color='steelblue', lw=2, label='ISA (base)')
-    ax_main.plot(expAtm["t"], expAtm["drag"], color='tomato',    lw=2, ls='--', label='Exponencial simple')
-    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
-    ax_main.set_ylabel('Arrastre (N)', fontsize=12)
-    ax_main.set_title('Tarea 3 — Modelos atmosféricos', fontsize=13)
-    ax_main.legend(fontsize=11)
-    ax_main.grid(True, alpha=0.4)
+    b, ea = sims["base"], sims["expAtm"]
+    ax_main.plot(b["t"],  b["drag"],  color=COLORS["base"],   lw=2,       label='ISA (base)')
+    ax_main.plot(ea["t"], ea["drag"], color=COLORS["expAtm"], lw=2, ls='--', label='Exponencial simple')
+    ax_main.legend(fontsize=9, facecolor='#0f0f23', labelcolor='white', edgecolor='#334455')
+    style_ax(ax_main, 'Tiempo (s)', 'Arrastre (N)', 'T3 — Modelos atmosféricos')
+    update_info()
     fig.canvas.draw_idle()
 
 def plot_masa(event=None):
+    global current_view
+    current_view = "masa"
     clear_main()
-    ax_main.plot(mp10["t"], mp10["alt"]/1000, color='steelblue', lw=2,         label='10 kg propelente')
-    ax_main.plot(mp50["t"], mp50["alt"]/1000, color='seagreen',  lw=2, ls='--', label='50 kg propelente')
-    ax_main.plot(mp90["t"], mp90["alt"]/1000, color='tomato',    lw=2, ls='-.',  label='90 kg propelente')
-    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
-    ax_main.set_ylabel('Altitud (km)', fontsize=12)
-    ax_main.set_title('Tarea 4 — Masa de propelente', fontsize=13)
-    ax_main.legend(fontsize=11)
-    ax_main.grid(True, alpha=0.4)
+    m10, m50, m90 = sims["mp10"], sims["mp50"], sims["mp90"]
+    ax_main.plot(m10["t"], m10["alt"] / 1000, color=COLORS["mp10"], lw=2,        label='10 kg propelente')
+    ax_main.plot(m50["t"], m50["alt"] / 1000, color=COLORS["mp50"], lw=2, ls='--', label='50 kg propelente')
+    ax_main.plot(m90["t"], m90["alt"] / 1000, color=COLORS["mp90"], lw=2, ls='-.',  label='90 kg propelente')
+    ax_main.legend(fontsize=9, facecolor='#0f0f23', labelcolor='white', edgecolor='#334455')
+    style_ax(ax_main, 'Tiempo (s)', 'Altitud (km)', 'T4 — Masa de propelente')
+    update_info()
     fig.canvas.draw_idle()
 
-# ---- Crear botones ----
+# Mapa: nombre de vista → función de refresco
+VIEW_FUNCS = {
+    "altitud":   plot_altitud,
+    "velocidad": plot_velocidad,
+    "arrastre":  plot_arrastre,
+    "xy":        plot_xy,
+    "3d":        plot_3d,
+    "empuje":    plot_empuje,
+    "coriolis":  plot_coriolis,
+    "atmosfera": plot_atmosfera,
+    "masa":      plot_masa,
+}
+
+# ============================================================
+# SLIDER DE ÁNGULO
+# ============================================================
+ax_slider = fig.add_axes([0.20, 0.035, 0.60, 0.025])
+ax_slider.set_facecolor('#1a1a2e')
+slider_angle = Slider(
+    ax_slider, 'Ángulo (°)', 1.0, 89.0,
+    valinit=current_angle, valstep=0.5,
+    color='#4fc3f7'
+)
+slider_angle.label.set_color('white')
+slider_angle.valtext.set_color('#4fc3f7')
+
+def on_angle_change(val):
+    global current_angle
+    current_angle = slider_angle.val
+    print(f"Recalculando para ángulo = {current_angle:.1f}°...")
+    run_all_sims(current_angle)
+    VIEW_FUNCS[current_view]()   # refresca la vista activa
+
+slider_angle.on_changed(on_angle_change)
+
+# ============================================================
+# BOTONES
+# ============================================================
 btn_data = [
-    ('Altitud',     plot_altitud),
-    ('Velocidad',   plot_velocidad),
-    ('Arrastre',    plot_arrastre),
-    ('Proy. XY',    plot_xy),
-    ('3D',          plot_3d),
-    ('T1: Empuje',  plot_empuje),
-    ('T2: Coriolis',plot_coriolis),
-    ('T3: Atmósf.', plot_atmosfera),
-    ('T4: Masa',    plot_masa),
+    ('Altitud',      plot_altitud),
+    ('Velocidad',    plot_velocidad),
+    ('Arrastre',     plot_arrastre),
+    ('Proy. XY',     plot_xy),
+    ('3D',           plot_3d),
+    ('T1: Empuje',   plot_empuje),
+    ('T2: Coriolis', plot_coriolis),
+    ('T3: Atmósf.',  plot_atmosfera),
+    ('T4: Masa',     plot_masa),
 ]
 
-n_btns = len(btn_data)
-btn_w = 0.095
-btn_gap = 0.005
+n_btns  = len(btn_data)
+btn_w   = 0.094
+btn_gap = 0.004
 total_w = n_btns * btn_w + (n_btns - 1) * btn_gap
 start_x = (1.0 - total_w) / 2
 
 buttons = []
 for i, (label, func) in enumerate(btn_data):
-    x_pos = start_x + i * (btn_w + btn_gap)
-    ax_btn = fig.add_axes([x_pos, 0.02, btn_w, 0.055])
-    btn = Button(ax_btn, label, color='#dce8f5', hovercolor='#aac8e8')
-    btn.label.set_fontsize(9)
+    x_pos  = start_x + i * (btn_w + btn_gap)
+    ax_btn = fig.add_axes([x_pos, 0.068, btn_w, 0.030])
+    btn    = Button(ax_btn, label, color='#16213e', hovercolor='#0f3460')
+    btn.label.set_fontsize(8)
+    btn.label.set_color('white')
     btn.on_clicked(func)
-    buttons.append(btn)   # guardar referencia para que no se destruya
+    buttons.append(btn)
 
-# Mostrar gráfica inicial
+# ============================================================
+# ARRANQUE
+# ============================================================
+update_info()
 plot_altitud()
 plt.show()
-
