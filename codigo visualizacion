@@ -1,0 +1,289 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from matplotlib.widgets import Button
+from mpl_toolkits.mplot3d import Axes3D
+
+# ============================================================
+# CONSTANTES Y PARÁMETROS
+# ============================================================
+GM    = 3.99e14
+R_E   = 6.378e6
+g0    = 9.8
+omega = 7.27e-5
+m0    = 100.0
+mp    = 10.0
+T_def = 1500.0
+Isp   = 100.0
+Cd    = 0.5
+Aref  = 0.1
+rho0  = 1.225
+H     = 8500.0
+T0_atm = 288.15
+L      = 0.0065
+R_air  = 287.05
+
+# ============================================================
+# ATMÓSFERA ISA
+# ============================================================
+def density_at_altitude(z):
+    z = max(z, 0.0)
+    z_km = z / 1000.0
+    if z_km < 11:
+        T_atm = T0_atm - L * z
+        p = 101325 * (T_atm / T0_atm) ** (g0 / (L * R_air))
+        return p / (R_air * T_atm)
+    elif z_km < 20:
+        T_atm = 216.65; p_11 = 22632.1; h = z - 11000
+        p = p_11 * np.exp(-g0 * h / (R_air * T_atm))
+        return p / (R_air * T_atm)
+    elif z_km < 85:
+        return 1.5e-5 * np.exp(-(z - 20000) / 7000)
+    else:
+        return max(1.5e-5 * np.exp(-(z - 85000) / 6000), 1e-20)
+
+# ============================================================
+# SIMULACIÓN CON EULER
+# ============================================================
+def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None, use_ISA=True):
+    if m_propellant is None:
+        m_propellant = m0 - mp
+    t_burnout = m_propellant * g0 * Isp / T_thrust
+    dt = 0.1; tfinal = 600.0
+    t_arr = np.arange(0, tfinal, dt)
+    N = len(t_arr)
+    pos = np.zeros((N, 3))
+    vel = np.zeros((N, 3))
+    mass = np.zeros(N)
+    drag_arr = np.zeros(N)
+    angle_rad = np.radians(5.0)
+    pos[0] = [0.0, 0.0, 0.0]
+    vel[0] = [np.sin(angle_rad)*10.0, 0.0, np.cos(angle_rad)*10.0]
+    mass[0] = m0
+    omega_vec = np.array([0.0, 0.0, omega_sim])
+    idx_land = N - 1
+    for i in range(1, N):
+        z_prev = pos[i-1, 2]; v_prev = vel[i-1]; m_prev = mass[i-1]; t_prev = t_arr[i-1]
+        g_z = -GM / (R_E + max(z_prev, 0))**2
+        a_grav = np.array([0.0, 0.0, g_z])
+        rho = density_at_altitude(z_prev) if use_ISA else rho0 * np.exp(-z_prev / H)
+        v_mag = np.linalg.norm(v_prev)
+        if v_mag > 0:
+            a_drag = -0.5 * Cd * Aref * rho * v_mag * v_prev / m_prev
+            drag_force = 0.5 * Cd * Aref * rho * v_mag**2
+        else:
+            a_drag = np.zeros(3); drag_force = 0.0
+        drag_arr[i-1] = drag_force
+        burning = t_prev < t_burnout
+        a_thrust = np.array([0.0, 0.0, T_thrust / m_prev]) if burning else np.zeros(3)
+        mdot = -T_thrust / (g0 * Isp) if burning else 0.0
+        a_coriolis = -2.0 * np.cross(omega_vec, v_prev)
+        a_total = a_grav + a_drag + a_thrust + a_coriolis
+        vel[i] = v_prev + a_total * dt
+        pos[i] = pos[i-1] + v_prev * dt
+        mass[i] = max(m_prev + mdot * dt, mp)
+        if i > 100 and pos[i, 2] <= 0:
+            idx_land = i; break
+    t_out   = t_arr[:idx_land+1]
+    pos_out = pos[:idx_land+1]
+    vel_out = vel[:idx_land+1]
+    drag_out = drag_arr[:idx_land+1]
+    # Calcular aceleración como derivada numérica de la velocidad
+    vel_mag = np.linalg.norm(vel_out, axis=1)
+    acc_out = np.gradient(vel_mag, t_out)
+    return {
+        "t": t_out, "pos": pos_out,
+        "vel": vel_mag,
+        "acc": acc_out,
+        "drag": drag_out,
+        "alt": pos_out[:, 2],
+        "max_alt": np.max(pos_out[:, 2]),
+        "tf": t_out[-1],
+        "xf": pos_out[-1, 0], "yf": pos_out[-1, 1]
+    }
+
+# ============================================================
+# EJECUTAR SIMULACIONES
+# ============================================================
+print("Ejecutando simulaciones...")
+base   = simulate()
+noC    = simulate(omega_sim=0.0)
+T1000  = simulate(T_thrust=1000.0)
+T3000  = simulate(T_thrust=3000.0)
+expAtm = simulate(use_ISA=False)
+mp10   = simulate(m_propellant=10.0)
+mp50   = simulate(m_propellant=50.0)
+mp90   = simulate(m_propellant=90.0)
+print(f"  Altura máxima:   {base['max_alt']/1000:.2f} km")
+print(f"  Tiempo de vuelo: {base['tf']:.1f} s")
+print(f"  Rango:           {np.sqrt(base['xf']**2 + base['yf']**2):.2f} m")
+
+# ============================================================
+# DASHBOARD CON BOTONES
+# ============================================================
+fig = plt.figure(figsize=(12, 7))
+fig.patch.set_facecolor('#f8f8f8')
+fig.suptitle('Dashboard — Trayectoria 3D del Cohete', fontsize=14, fontweight='bold', y=0.98)
+
+# Área principal para la gráfica
+ax_main = fig.add_axes([0.08, 0.12, 0.88, 0.78])
+ax_main.set_visible(False)
+ax_3d = None  # se crea al necesitarse
+
+# ---- Funciones de cada gráfica ----
+def clear_main():
+    global ax_3d
+    ax_main.cla()
+    ax_main.set_visible(True)
+    if ax_3d is not None:
+        ax_3d.remove()
+        ax_3d = None
+
+def plot_altitud(event=None):
+    clear_main()
+    ax_main.plot(base["t"], base["alt"]/1000, 'steelblue', lw=2)
+    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
+    ax_main.set_ylabel('Altitud (km)', fontsize=12)
+    ax_main.set_title('Altitud vs Tiempo', fontsize=13)
+    ax_main.grid(True, alpha=0.4)
+    ax_main.fill_between(base["t"], base["alt"]/1000, alpha=0.15, color='steelblue')
+    fig.canvas.draw_idle()
+
+def plot_velocidad(event=None):
+    clear_main()
+    ax_main.plot(base["t"], base["vel"], color='seagreen', lw=2)
+    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
+    ax_main.set_ylabel('Velocidad (m/s)', fontsize=12)
+    ax_main.set_title('Velocidad vs Tiempo', fontsize=13)
+    ax_main.grid(True, alpha=0.4)
+    fig.canvas.draw_idle()
+
+def plot_arrastre(event=None):
+    clear_main()
+    ax_main.plot(base["t"], base["drag"], color='tomato', lw=2)
+    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
+    ax_main.set_ylabel('Arrastre (N)', fontsize=12)
+    ax_main.set_title('Arrastre aerodinámico vs Tiempo', fontsize=13)
+    ax_main.grid(True, alpha=0.4)
+    fig.canvas.draw_idle()
+
+def plot_xy(event=None):
+    clear_main()
+    ax_main.plot(base["pos"][:, 0], base["pos"][:, 1], color='orchid', lw=2)
+    ax_main.set_xlabel('x — Este (m)', fontsize=12)
+    ax_main.set_ylabel('y — Norte (m)', fontsize=12)
+    ax_main.set_title('Proyección horizontal de la trayectoria', fontsize=13)
+    ax_main.grid(True, alpha=0.4)
+    fig.canvas.draw_idle()
+
+def plot_3d(event=None):
+    global ax_3d
+    ax_main.set_visible(False)
+    if ax_3d is None:
+        ax_3d = fig.add_axes([0.08, 0.12, 0.88, 0.78], projection='3d')
+    ax_3d.cla()
+    p = base["pos"]
+    ax_3d.plot(p[:, 0], p[:, 1], p[:, 2]/1000, color='steelblue', lw=2, label='Trayectoria')
+    ax_3d.scatter([0], [0], [0], color='green', s=60, zorder=5, label='Inicio')
+    ax_3d.scatter([p[-1,0]], [p[-1,1]], [p[-1,2]/1000], color='red', s=60, zorder=5, label='Aterrizaje')
+    ax_3d.set_xlabel('x — Este (m)', fontsize=10)
+    ax_3d.set_ylabel('y — Norte (m)', fontsize=10)
+    ax_3d.set_zlabel('Altitud (km)', fontsize=10)
+    ax_3d.set_title('Trayectoria 3D del cohete', fontsize=13)
+    ax_3d.legend(fontsize=9)
+    # Mostrar cada tick del eje Z con km y metros
+    z_km_ticks = ax_3d.get_zticks()
+    ax_3d.set_zticklabels(
+        [f'{v:.1f} km\n({v*1000:.0f} m)' for v in z_km_ticks],
+        fontsize=8
+    )
+    fig.canvas.draw_idle()
+
+def plot_empuje(event=None):
+    clear_main()
+    ax_main.plot(base["t"],  base["alt"]/1000,  color='steelblue', lw=2, label='T = 1500 N (base)')
+    ax_main.plot(T1000["t"], T1000["alt"]/1000, color='tomato',    lw=2, ls='--', label='T = 1000 N')
+    ax_main.plot(T3000["t"], T3000["alt"]/1000, color='seagreen',  lw=2, ls='-.',  label='T = 3000 N')
+    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
+    ax_main.set_ylabel('Altitud (km)', fontsize=12)
+    ax_main.set_title('Tarea 1 — Efecto del empuje', fontsize=13)
+    ax_main.legend(fontsize=11)
+    ax_main.grid(True, alpha=0.4)
+    fig.canvas.draw_idle()
+
+def plot_coriolis(event=None):
+    clear_main()
+    ax_main.plot(base["pos"][:, 0], base["pos"][:, 1], color='steelblue', lw=2, label='Con Coriolis')
+    ax_main.plot(noC["pos"][:,  0], noC["pos"][:,  1], color='tomato',    lw=2, ls='--', label='Sin Coriolis (ω=0)')
+    ax_main.set_xlabel('x — Este (m)', fontsize=12)
+    ax_main.set_ylabel('y — Norte (m)', fontsize=12)
+    ax_main.set_title('Tarea 2 — Efecto Coriolis', fontsize=13)
+    ax_main.legend(fontsize=11)
+    ax_main.grid(True, alpha=0.4)
+    fig.canvas.draw_idle()
+
+def plot_atmosfera(event=None):
+    clear_main()
+    ax_main.plot(base["t"],   base["drag"],   color='steelblue', lw=2, label='ISA (base)')
+    ax_main.plot(expAtm["t"], expAtm["drag"], color='tomato',    lw=2, ls='--', label='Exponencial simple')
+    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
+    ax_main.set_ylabel('Arrastre (N)', fontsize=12)
+    ax_main.set_title('Tarea 3 — Modelos atmosféricos', fontsize=13)
+    ax_main.legend(fontsize=11)
+    ax_main.grid(True, alpha=0.4)
+    fig.canvas.draw_idle()
+
+def plot_aceleracion(event=None):
+    clear_main()
+    ax_main.plot(base["t"], base["acc"], color='darkorange', lw=2)
+    ax_main.axhline(0, color='gray', lw=0.8, ls='--')
+    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
+    ax_main.set_ylabel('Aceleración (m/s²)', fontsize=12)
+    ax_main.set_title('Aceleración vs Tiempo', fontsize=13)
+    ax_main.grid(True, alpha=0.4)
+    fig.canvas.draw_idle()
+
+def plot_masa(event=None):
+    clear_main()
+    ax_main.plot(mp10["t"], mp10["alt"]/1000, color='steelblue', lw=2,         label='10 kg propelente')
+    ax_main.plot(mp50["t"], mp50["alt"]/1000, color='seagreen',  lw=2, ls='--', label='50 kg propelente')
+    ax_main.plot(mp90["t"], mp90["alt"]/1000, color='tomato',    lw=2, ls='-.',  label='90 kg propelente')
+    ax_main.set_xlabel('Tiempo (s)', fontsize=12)
+    ax_main.set_ylabel('Altitud (km)', fontsize=12)
+    ax_main.set_title('Tarea 4 — Masa de propelente', fontsize=13)
+    ax_main.legend(fontsize=11)
+    ax_main.grid(True, alpha=0.4)
+    fig.canvas.draw_idle()
+
+# ---- Crear botones ----
+btn_data = [
+    ('Altitud',      plot_altitud),
+    ('Velocidad',    plot_velocidad),
+    ('Aceleración',  plot_aceleracion),
+    ('Arrastre',     plot_arrastre),
+    ('Proy. XY',     plot_xy),
+    ('3D',           plot_3d),
+    ('T1: Empuje',   plot_empuje),
+    ('T2: Coriolis', plot_coriolis),
+    ('T3: Atmósf.',  plot_atmosfera),
+    ('T4: Masa',     plot_masa),
+]
+
+n_btns = len(btn_data)
+btn_w = 0.095
+btn_gap = 0.005
+total_w = n_btns * btn_w + (n_btns - 1) * btn_gap
+start_x = (1.0 - total_w) / 2
+
+buttons = []
+for i, (label, func) in enumerate(btn_data):
+    x_pos = start_x + i * (btn_w + btn_gap)
+    ax_btn = fig.add_axes([x_pos, 0.02, btn_w, 0.055])
+    btn = Button(ax_btn, label, color='#dce8f5', hovercolor='#aac8e8')
+    btn.label.set_fontsize(9)
+    btn.on_clicked(func)
+    buttons.append(btn)   # guardar referencia para que no se destruya
+
+# Mostrar gráfica inicial
+plot_altitud()
+plt.show()
