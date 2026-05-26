@@ -211,12 +211,12 @@ fig.suptitle('Dashboard — Simulación de Trayectoria de Cohete',
              fontsize=13, fontweight='bold', color='white', y=0.98)
 
 # Área principal (2D) y slot 3D
-ax_main = fig.add_axes([0.07, 0.18, 0.89, 0.74])
+ax_main = fig.add_axes([0.07, 0.22, 0.89, 0.70])
 ax_main.set_facecolor('#0f0f23')
 ax_3d   = None
 
 # Info box (stats en tiempo real)
-ax_info = fig.add_axes([0.07, 0.10, 0.89, 0.065])
+ax_info = fig.add_axes([0.07, 0.11, 0.89, 0.07])
 ax_info.axis('off')
 info_text = ax_info.text(
     0.5, 0.5, "", transform=ax_info.transAxes,
@@ -252,7 +252,7 @@ def style_ax(ax, xlabel, ylabel, title):
     ax.tick_params(colors='#8899aa', labelsize=9)
     ax.xaxis.label.set_color('#8899aa')
     ax.yaxis.label.set_color('#8899aa')
-    ax.set_xlabel(xlabel, fontsize=10)
+    ax.set_xlabel(xlabel,fontsize=10)
     ax.set_ylabel(ylabel, fontsize=10)
     ax.set_title(title, fontsize=11, color='white', pad=6)
     ax.grid(True, alpha=0.15, color='white')
@@ -320,7 +320,7 @@ def plot_3d(event=None):
     ax_main.set_visible(False)
     if ax_3d is not None:
         fig.delaxes(ax_3d)
-    ax_3d = fig.add_axes([0.07, 0.18, 0.89, 0.74], projection='3d')
+    ax_3d = fig.add_axes([0.07, 0.22, 0.89, 0.70], projection='3d')
     ax_3d.set_facecolor('#0f0f23')
     ax_3d.patch.set_facecolor('#0f0f23')
     p = sims["base"]["pos"]
