@@ -1,102 +1,103 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
+ 
 # Constants
 g = 9.8
-
-# Initial conditions — change these to whatever you want
+ 
+# Initial conditions
 x0  = 0.0
-v0x = 1.0
-
+v0x = 10.0 
+ 
 # Timestep
 tfinal = 10.0
 dt = tfinal / 2000
-
+ 
 # Initialize vectors
 time = np.arange(0, tfinal, dt)
 lal  = time.size
-
+#Save first term of each vector for initial conditions
 xx = np.zeros(lal)
 vx = np.zeros(lal)
-
+ 
 xx[0] = x0
 vx[0] = v0x
-
+#To later get  maximum velocity
 vxmax = v0x
 xmax  = x0
-
-# Euler integration
+ 
+# set counter and iterate
 i = 1
-while i < len(time):
-    ax   = -g
+while i < len(time) and xx[i-1] > -0.0001:
+    ax    = -g
     vx[i] = vx[i-1] + ax * dt
-    xx[i] = xx[i-1] + vx[i-1] * dt
-
     if vx[i] > vxmax:
         vxmax = vx[i]
+ 
+    xx[i] = xx[i-1] + vx[i-1] * dt
     if xx[i] > xmax:
         xmax = xx[i]
-
-    if i > 1 and xx[i] <= 0:
-        break
-    i += 1
-
+ 
+    i = i + 1
+ 
 tfinreal = time[i-1]
 xfinreal = xx[i-1]
-
+ 
 print('Time of flight  :', round(tfinreal, 2), 's')
 print('Final position  :', round(xfinreal, 2), 'm')
 print('Maximum velocity:', round(vxmax,    2), 'm/s')
 print('Maximum height  :', round(xmax,     2), 'm')
-
+ 
 # ── Sliced arrays (only meaningful data) ──────────────────────────────────────
 t_plot  = time[:i]
 xx_plot = xx[:i]
 vx_plot = vx[:i]
-
-# ── Figure 1 — Position ───────────────────────────────────────────────────────
+ 
+# ── Analytical solution ───────────────────────────────────────────────────────
+# Free fall starting from origin with v0 = 10 m/s:
+#   va(t) = v0 - g*t
+#   xa(t) = x0 + v0*t - 0.5*g*t^2
+va_plot = v0x - g * t_plot
+xa_plot = x0 + v0x * t_plot - 0.5 * g * t_plot**2
+ 
+# ── Figure 1 — Velocity: numerical vs analytical (Plot 1) ─────────────────────
 fig1, ax1 = plt.subplots(figsize=(8, 4))
-
-ax1.plot(t_plot, xx_plot, 'k', linewidth=2, label='Position')
-
-# Mark maximum height
-t_xmax = t_plot[np.argmax(xx_plot)]
-ax1.axhline(xmax,     color='steelblue', linestyle='--', linewidth=1, label=f'Max height = {xmax:.2f} m')
-ax1.axvline(t_xmax,   color='steelblue', linestyle=':',  linewidth=1)
-ax1.axvline(tfinreal, color='tomato',    linestyle='--', linewidth=1, label=f'Landing t = {tfinreal:.2f} s')
-
-# Axes limits adapt to the data
+ 
+ax1.plot(t_plot, vx_plot, 'k',         linewidth=2,   label='Numerical (Euler)')
+ax1.plot(t_plot, va_plot, 'tomato',    linewidth=1.5, linestyle='--', label='Analytical')
+ 
+ax1.axhline(0,      color='steelblue', linestyle='--', linewidth=1, label='v = 0 (peak)')
+ax1.axhline(v0x,    color='seagreen',  linestyle='--', linewidth=1, label=f'v₀ = {v0x} m/s')
+ax1.axvline(tfinreal, color='gray',    linestyle=':',  linewidth=1, label=f'Landing t = {tfinreal:.2f} s')
+ 
 ax1.set_xlim(0, tfinreal * 1.05)
-ax1.set_ylim(min(xx_plot) - abs(xmax) * 0.1,
-             xmax * 1.2)
-
-ax1.set_xlabel('Time (s)',     fontsize=14)
-ax1.set_ylabel('Position (m)', fontsize=14)
-ax1.set_title(f'Position vs Time  |  v₀ = {v0x} m/s,  x₀ = {x0} m', fontsize=13)
+ax1.set_ylim(min(vx_plot) * 1.2, max(vx_plot) * 1.2)
+ 
+ax1.set_xlabel('Time (s)',       fontsize=14)
+ax1.set_ylabel('Velocity (m/s)', fontsize=14)
+ax1.set_title(f'Plot 1 — Velocity vs Time  |  v₀ = {v0x} m/s,  x₀ = {x0} m\nNumerical (Euler) vs Analytical', fontsize=13)
 ax1.legend(fontsize=11)
 ax1.grid(True, alpha=0.3)
 plt.tight_layout()
-
-# ── Figure 2 — Velocity ───────────────────────────────────────────────────────
+ 
+# ── Figure 2 — Position: numerical vs analytical (Plot 2) ─────────────────────
 fig2, ax2 = plt.subplots(figsize=(8, 4))
-
-ax2.plot(t_plot, vx_plot, 'k', linewidth=2, label='Velocity')
-
-# Mark zero-crossing (peak height moment)
-ax2.axhline(0,      color='steelblue', linestyle='--', linewidth=1, label='v = 0 (peak)')
-ax2.axhline(v0x,    color='seagreen',  linestyle='--', linewidth=1, label=f'v₀ = {v0x} m/s')
-ax2.axvline(tfinreal, color='tomato',  linestyle='--', linewidth=1, label=f'Landing t = {tfinreal:.2f} s')
-
-# Axes limits adapt to the data
+ 
+ax2.plot(t_plot, xx_plot, 'k',         linewidth=2,   label='Numerical (Euler)')
+ax2.plot(t_plot, xa_plot, 'tomato',    linewidth=1.5, linestyle='--', label='Analytical')
+ 
+t_xmax = t_plot[np.argmax(xx_plot)]
+ax2.axhline(xmax,       color='steelblue', linestyle='--', linewidth=1, label=f'Max height = {xmax:.2f} m')
+ax2.axvline(t_xmax,     color='steelblue', linestyle=':',  linewidth=1)
+ax2.axvline(tfinreal,   color='gray',      linestyle=':',  linewidth=1, label=f'Landing t = {tfinreal:.2f} s')
+ 
 ax2.set_xlim(0, tfinreal * 1.05)
-ax2.set_ylim(min(vx_plot) * 1.2,
-             max(vx_plot) * 1.2)
-
+ax2.set_ylim(min(xx_plot) - abs(xmax) * 0.1, xmax * 1.2)
+ 
 ax2.set_xlabel('Time (s)',      fontsize=14)
-ax2.set_ylabel('Velocity (m/s)', fontsize=14)
-ax2.set_title(f'Velocity vs Time  |  v₀ = {v0x} m/s,  x₀ = {x0} m', fontsize=13)
+ax2.set_ylabel('Position (m)',  fontsize=14)
+ax2.set_title(f'Plot 2 — Position vs Time  |  v₀ = {v0x} m/s,  x₀ = {x0} m\nNumerical (Euler) vs Analytical', fontsize=13)
 ax2.legend(fontsize=11)
 ax2.grid(True, alpha=0.3)
 plt.tight_layout()
-
+ 
 plt.show()
