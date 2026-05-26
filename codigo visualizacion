@@ -56,7 +56,7 @@ def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None, use_ISA=True):
     vel = np.zeros((N, 3))
     mass = np.zeros(N)
     drag_arr = np.zeros(N)
-    angle_rad = np.radians(5.0)
+    angle_rad = np.radians(45.0)
     pos[0] = [0.0, 0.0, 0.0]
     vel[0] = [np.sin(angle_rad)*10.0, 0.0, np.cos(angle_rad)*10.0]
     mass[0] = m0
@@ -183,19 +183,26 @@ def plot_3d(event=None):
         ax_3d = fig.add_axes([0.08, 0.12, 0.88, 0.78], projection='3d')
     ax_3d.cla()
     p = base["pos"]
-    ax_3d.plot(p[:, 0], p[:, 1], p[:, 2]/1000, color='steelblue', lw=2, label='Trayectoria')
+    # Todo en metros, escala real
+    ax_3d.plot(p[:, 0], p[:, 1], p[:, 2], color='steelblue', lw=2, label='Trayectoria')
     ax_3d.scatter([0], [0], [0], color='green', s=60, zorder=5, label='Inicio')
-    ax_3d.scatter([p[-1,0]], [p[-1,1]], [p[-1,2]/1000], color='red', s=60, zorder=5, label='Aterrizaje')
+    ax_3d.scatter([p[-1,0]], [p[-1,1]], [p[-1,2]], color='red', s=60, zorder=5, label='Aterrizaje')
     ax_3d.set_xlabel('x — Este (m)', fontsize=10)
     ax_3d.set_ylabel('y — Norte (m)', fontsize=10)
-    ax_3d.set_zlabel('Altitud (km)', fontsize=10)
-    ax_3d.set_title('Trayectoria 3D del cohete', fontsize=13)
+    ax_3d.set_zlabel('Altitud (m)', fontsize=10)
+    ax_3d.set_title('Trayectoria 3D — escala real', fontsize=13)
     ax_3d.legend(fontsize=9)
-    # Mostrar cada tick del eje Z con km y metros
-    z_km_ticks = ax_3d.get_zticks()
+    # Forzar misma escala en los tres ejes (escala real)
+    max_z = np.max(p[:, 2])
+    max_xy = max(np.max(np.abs(p[:, 0])), np.max(np.abs(p[:, 1])), 1.0)
+    half = max_z / 2  # centrar en torno al punto medio Z
+    ax_3d.set_xlim(-half, half)
+    ax_3d.set_ylim(-half, half)
+    ax_3d.set_zlim(0, max_z * 1.05)
+    # Ticks Z con km y metros
+    z_ticks = ax_3d.get_zticks()
     ax_3d.set_zticklabels(
-        [f'{v:.1f} km\n({v*1000:.0f} m)' for v in z_km_ticks],
-        fontsize=8
+        [f'{v:.0f} m\n({v/1000:.1f} km)' for v in z_ticks], fontsize=8
     )
     fig.canvas.draw_idle()
 
