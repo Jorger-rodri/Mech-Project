@@ -10,6 +10,8 @@
     - Controles Play / Pause / Reset para la orbita
     """
 
+from turtle import pos
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -124,7 +126,7 @@ def density_at_altitude(z):
 
 
 def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None,
-            use_ISA=True, angle_deg=5.0):
+            use_ISA=True, angle_deg=0.0):
     """Integra las ecuaciones de movimiento con el metodo de Euler."""
     if m_propellant is None:
         m_propellant = m0 - mp
@@ -141,12 +143,12 @@ def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None,
     drag_arr = np.zeros(N)
 
     angle_rad = np.radians(angle_deg)
-    v0        = 10.0
+    v0        = 0.0
     pos[0]    = [0.0, 0.0, 0.0]
-    vel[0]    = [np.sin(angle_rad) * v0, 0.0, np.cos(angle_rad) * v0]
+    vel[0]    = [0.0, np.sin(angle_rad) * v0, np.cos(angle_rad) * v0]
     mass[0]   = m0
-
-    omega_vec = np.array([0.0, 0.0, omega_sim])
+#Suponemos que el cohete se lanza desde el ecuador.
+    omega_vec = np.array([-omega_sim, 0.0, 0.0])
     idx_land  = N - 1
 
     for i in range(1, N):
@@ -169,7 +171,7 @@ def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None,
         drag_arr[i-1] = drag_force
 
         burning    = t_prev < t_burnout
-        thrust_dir = np.array([np.sin(angle_rad), 0.0, np.cos(angle_rad)])
+        thrust_dir = np.array([0.0, np.sin(angle_rad), np.cos(angle_rad)])
         a_thrust   = (T_thrust / m_prev) * thrust_dir if burning else np.zeros(3)
         mdot       = -T_thrust / (g0 * Isp)           if burning else 0.0
 
@@ -181,9 +183,10 @@ def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None,
         mass[i] = max(m_prev + mdot * dt, mp)
 
         if i > 2 and pos[i, 2] <= 0.0:
+            drag_arr[i] = drag_force
             idx_land = i
             break
-
+    drag_arr[i] = drag_force
     t_out    = t_arr[:idx_land + 1]
     pos_out  = pos[:idx_land + 1]
     vel_out  = vel[:idx_land + 1]
@@ -202,7 +205,7 @@ def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None,
     }
 
 
-current_angle = 5.0
+current_angle = 0.0
 current_view  = "altitud"
 sims          = {}
 
@@ -852,17 +855,17 @@ def build_dashboard():
         current_view = "xy"
         clear_main()
         b = sims["base"]
-        ax_main.plot(b["pos"][:, 0], b["pos"][:, 1],
+        # INTERCAMBIO DE EJES: ahora X = SUR (coordenada Y), Y = ESTE (coordenada X)
+        ax_main.plot(b["pos"][:, 1], b["pos"][:, 0],
                     color='#ce93d8', lw=2, zorder=3)
         ax_main.scatter([0],        [0],
                         color=C["accent3"], s=70, zorder=5,
                         marker='^', label='INICIO')
-        ax_main.scatter([b["xf"]], [b["yf"]],
+        ax_main.scatter([b["yf"]], [b["xf"]],
                         color=C["accent2"], s=70, zorder=5,
                         marker='v', label='ATERRIZAJE')
         ax_main.legend(**legend_style())
-        style_ax(ax_main, 'x — ESTE (m)', 'y — NORTE (m)',
-                'PROYECCION HORIZONTAL  XY')
+        style_ax(ax_main, 'SUR (m)', 'ESTE (m)', 'PROYECCION HORIZONTAL (ejes intercambiados)')
         update_info()
         fig.canvas.draw_idle()
 
@@ -893,7 +896,7 @@ def build_dashboard():
                     linestyle='--', label='Proy. suelo')
         for ax_label, lbl in zip(
             [ax_3d[0].set_xlabel, ax_3d[0].set_ylabel, ax_3d[0].set_zlabel],
-            ['x — ESTE (m)', 'y — NORTE (m)', 'ALTITUD (km)']
+            ['x — ESTE (m)', 'y - SUR (m)', 'ALTITUD (km)']
         ):
             ax_label(lbl, fontsize=8, color=C["text_lo"], fontfamily='monospace')
         ax_3d[0].set_title('TRAYECTORIA 3D  DEL  COHETE',
@@ -922,13 +925,14 @@ def build_dashboard():
         current_view = "coriolis"
         clear_main()
         b, nc = sims["base"], sims["noC"]
-        ax_main.plot(b["pos"][:, 0],  b["pos"][:, 1],
+        # INTERCAMBIO DE EJES: X = SUR, Y = ESTE
+        ax_main.plot(b["pos"][:, 1],  b["pos"][:, 0],
                     color=C["base"], lw=2,          label='CON CORIOLIS')
-        ax_main.plot(nc["pos"][:, 0], nc["pos"][:, 1],
+        ax_main.plot(nc["pos"][:, 1], nc["pos"][:, 0],
                     color=C["noC"],  lw=2, ls='--', label='SIN CORIOLIS  (omega = 0)')
         ax_main.legend(**legend_style())
-        style_ax(ax_main, 'x — ESTE (m)', 'y — NORTE (m)',
-                'T2  —  EFECTO CORIOLIS')
+        style_ax(ax_main, 'SUR (m)', 'ESTE (m)',
+                'T2  —  EFECTO CORIOLIS (ejes intercambiados)')
         update_info()
         fig.canvas.draw_idle()
 
@@ -976,7 +980,7 @@ def build_dashboard():
     ax_slider = fig.add_axes([0.20, 0.032, 0.60, 0.022])
     ax_slider.set_facecolor(C["bg_deep"])
     slider_angle = Slider(
-        ax_slider, '', 1.0, 89.0,
+        ax_slider, '', 0.0, 89.0,
         valinit=current_angle, valstep=0.5,
         color=C["accent"]
     )
