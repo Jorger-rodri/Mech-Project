@@ -31,6 +31,10 @@ The simulation includes:
 
 Different parameters can be modified to explore how they affect the rocket's trajectory and overall motion.
 
+## Extra excercise - ?
+
+If youu can find it, this extra simiulates orbits under extreme gravitational forces, on which by varying some initial parameters, a 3D model of the trajectory will appear. 
+
 ## Tools
 
 - Python
