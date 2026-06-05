@@ -1,15 +1,14 @@
 """
-╔══════════════════════════════════════════════════════════════════╗
-║         SIMULACIÓN DE TRAYECTORIA DE COHETE — MISSION HUD        ║
-║                                                                  ║
-║  Experiencia completa:                                           ║
-║    · Pantalla de cuenta atrás estilo NASA/SpaceX                 ║
-║    · Dashboard con HUD de misión y fondo espacial animado        ║
-║    · Atmósfera ISA multicapa · Gravedad variable                 ║
-║    · Arrastre aerodinámico · Fuerza de Coriolis                  ║
-║    · Simulación orbital alrededor de un agujero negro            ║
-╚══════════════════════════════════════════════════════════════════╝
-"""
+    SIMULACION DE TRAYECTORIA DE COHETE — MISSION HUD
+
+    Experiencia completa:
+    - Pantalla TOP SECRET con efectos criptograficos
+    - Dashboard con HUD de mision y fondo espacial animado
+    - Atmosfera ISA multicapa · Gravedad variable
+    - Arrastre aerodinamico · Fuerza de Coriolis
+    - Simulacion orbital alrededor de un agujero negro
+    - Controles Play / Pause / Reset para la orbita
+    """
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,23 +23,21 @@ import matplotlib.colors as mcolors
 from matplotlib.collections import LineCollection
 import time
 import threading
-
-# ══════════════════════════════════════════════════════════════════
-#  PALETA DE MISIÓN (ESTILO PROFESIONAL) - FONDO NEGRO PURO
-# ══════════════════════════════════════════════════════════════════
+import random
+import string
 
 C = {
-    "bg_deep":   "#000000",      # negro puro
-    "bg_panel":  "#000000",      # negro puro
-    "bg_plot":   "#000000",      # negro puro
-    "border":    "#1e2a3a",      # borde sutil
-    "accent":    "#00e5ff",      # cian eléctrico
-    "accent2":   "#ff6e40",      # naranja propulsor
-    "accent3":   "#00ff87",      # verde neón
-    "warn":      "#ffea00",      # amarillo alerta
-    "text_hi":   "#f0f4f8",      # texto principal
-    "text_lo":   "#7f8c9a",      # texto secundario
-    "grid":      "#1e2a3a",      # grid de gráfica
+    "bg_deep":   "#000000",
+    "bg_panel":  "#000000",
+    "bg_plot":   "#000000",
+    "border":    "#1e2a3a",
+    "accent":    "#00e5ff",
+    "accent2":   "#ff6e40",
+    "accent3":   "#00ff87",
+    "warn":      "#ffea00",
+    "text_hi":   "#f0f4f8",
+    "text_lo":   "#7f8c9a",
+    "grid":      "#1e2a3a",
     "base":      "#00e5ff",
     "T1000":     "#ff6e40",
     "T3000":     "#00ff87",
@@ -51,35 +48,28 @@ C = {
     "mp90":      "#ff6e40",
 }
 
-# ══════════════════════════════════════════════════════════════════
-#  CONSTANTES Y PARÁMETROS DEL COHETE
-# ══════════════════════════════════════════════════════════════════
+GM     = 3.99e14
+R_E    = 6.378e6
+g0     = 9.8
+omega  = 7.27e-5
 
-GM     = 3.99e14   # Parámetro gravitacional estándar [m³/s²]
-R_E    = 6.378e6   # Radio medio de la Tierra          [m]
-g0     = 9.8       # Gravedad estándar al nivel del mar [m/s²]
-omega  = 7.27e-5   # Velocidad angular de la Tierra     [rad/s]
+m0     = 100.0
+mp     = 10.0
+T_def  = 1500.0
+Isp    = 100.0
+Cd     = 0.5
+Aref   = 0.1
 
-m0     = 100.0     # Masa total inicial                 [kg]
-mp     = 10.0      # Masa de estructura (seca)          [kg]
-T_def  = 1500.0    # Empuje nominal                     [N]
-Isp    = 100.0     # Impulso específico                 [s]
-Cd     = 0.5       # Coeficiente de arrastre            [—]
-Aref   = 0.1       # Área de referencia                 [m²]
+rho0   = 1.225
+H      = 8500.0
 
-rho0   = 1.225     # Densidad al nivel del mar          [kg/m³]
-H      = 8500.0    # Altura de escala                   [m]
+T0_atm = 288.15
+L      = 0.0065
+R_air  = 287.05
 
-T0_atm = 288.15    # Temperatura al nivel del mar       [K]
-L      = 0.0065    # Gradiente térmico troposférico     [K/m]
-R_air  = 287.05    # Constante del aire                 [J/(kg·K)]
-
-# ══════════════════════════════════════════════════════════════════
-#  ATMÓSFERA ISA — modelo multicapa (0–85 km)
-# ══════════════════════════════════════════════════════════════════
 
 def density_at_altitude(z):
-    """Densidad ISA [kg/m³] en función de la altitud z [m]."""
+    """Densidad ISA [kg/m3] en funcion de la altitud z [m]."""
     z    = max(z, 0.0)
     z_km = z / 1000.0
 
@@ -132,13 +122,10 @@ def density_at_altitude(z):
 
     return rho
 
-# ══════════════════════════════════════════════════════════════════
-#  SIMULACIÓN NUMÉRICA DEL COHETE — Integración de Euler
-# ══════════════════════════════════════════════════════════════════
 
 def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None,
-             use_ISA=True, angle_deg=5.0):
-    """Integra las ecuaciones de movimiento con el método de Euler."""
+            use_ISA=True, angle_deg=5.0):
+    """Integra las ecuaciones de movimiento con el metodo de Euler."""
     if m_propellant is None:
         m_propellant = m0 - mp
 
@@ -214,13 +201,11 @@ def simulate(T_thrust=1500.0, omega_sim=omega, m_propellant=None,
         "yf":      pos_out[-1, 1],
     }
 
-# ══════════════════════════════════════════════════════════════════
-#  ESTADO GLOBAL DEL COHETE
-# ══════════════════════════════════════════════════════════════════
 
 current_angle = 5.0
 current_view  = "altitud"
 sims          = {}
+
 
 def run_all_sims(angle_deg):
     global sims
@@ -233,9 +218,217 @@ def run_all_sims(angle_deg):
     sims["mp50"]   = simulate(m_propellant=50.0,    angle_deg=angle_deg)
     sims["mp90"]   = simulate(m_propellant=90.0,    angle_deg=angle_deg)
 
-# ══════════════════════════════════════════════════════════════════
-#  PANTALLA DE CUENTA ATRÁS (SIN COHETE, SOLO ESTRELLAS Y TEXTO)
-# ══════════════════════════════════════════════════════════════════
+
+def _scramble_text(text, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@!%&*"):
+    """Devuelve una version aleatoria cifrada del texto para efecto glitch."""
+    return "".join(
+        c if c == " " else random.choice(chars)
+        for c in text
+    )
+
+
+def _morse_encode(text):
+    """Codifica texto en morse visual para efecto de tipografia clasificada."""
+    morse = {
+        'A': '.-',   'B': '-...', 'C': '-.-.',
+        'D': '-..',  'E': '.',    'F': '..-.',
+        'G': '--.',   'H': '....', 'I': '..',
+        'J': '.---', 'K': '-.-',  'L': '.-..',
+        'M': '--',   'N': '-.',   'O': '---',
+        'P': '.--.', 'Q': '--.-', 'R': '.-.',
+        'S': '...',  'T': '-',    'U': '..-',
+        'V': '...-', 'W': '.--',  'X': '-..-',
+        'Y': '-.--', 'Z': '--..',
+        '0': '-----','1': '.----','2': '..---',
+        '3': '...--','4': '....-','5': '.....',
+        '6': '-....','7': '--...','8': '---..',
+        '9': '----.',
+        ' ': '  ',
+    }
+    result = []
+    for ch in text.upper():
+        if ch in morse:
+            result.append(morse[ch])
+        else:
+            result.append(ch)
+    return " ".join(result)
+
+
+def show_top_secret_intro():
+    """
+    Pantalla de bienvenida TOP SECRET con efectos criptograficos
+    y tipografia clasificada. Cierra al pulsar cualquier tecla.
+    MEJORADA: aparece más rápido y espera indefinidamente hasta pulsar tecla.
+    """
+    fig_ts = plt.figure(figsize=(14, 8), facecolor='black')
+    fig_ts.patch.set_facecolor('black')
+
+    ax = fig_ts.add_axes([0, 0, 1, 1])
+    ax.set_facecolor('black')
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis('off')
+
+    # Estrellas de fondo
+    np.random.seed(99)
+    xs  = np.random.uniform(0, 1, 250)
+    ys  = np.random.uniform(0, 1, 250)
+    sz  = np.random.exponential(0.5, 250) + 0.1
+    alp = np.random.uniform(0.05, 0.25, 250)
+    ax.scatter(xs, ys, s=sz, c='white', alpha=alp,
+            transform=ax.transAxes, zorder=1)
+
+    TITULO_RAW  = "TOP SECRET"
+    FRASE_RAW   = (
+        "Deja que la tan temida y fria oscuridad te arrope de la misma manera\n"
+        "que las calurosas y brillantes estrellas en las noches de verano.\n"
+        "Al fin y al cabo, no son ambos conceptos reflejo del paso del propio tiempo?..."
+    )
+
+    titulo_morse = _morse_encode(TITULO_RAW)
+
+    # Líneas decorativas
+    ax.axhline(y=0.87, xmin=0.05, xmax=0.95,
+               color='white', lw=0.6, alpha=0.4, zorder=2)
+    ax.axhline(y=0.83, xmin=0.05, xmax=0.95,
+               color='white', lw=0.2, alpha=0.2, zorder=2)
+
+    ax.text(0.5, 0.955, titulo_morse,
+            ha='center', va='center',
+            fontsize=7, color='white', alpha=0.35,
+            fontfamily='monospace',
+            transform=ax.transAxes, zorder=3)
+
+    ax.text(0.5, 0.895, TITULO_RAW,
+            ha='center', va='center',
+            fontsize=62, color='white',
+            fontweight='bold',
+            fontfamily='monospace',
+            transform=ax.transAxes, zorder=4,
+            path_effects=[pe.withStroke(linewidth=2, foreground='black')])
+
+    ax.text(0.5, 0.845, "/ / / C L A S I F I C A D O / / /",
+            ha='center', va='center',
+            fontsize=9, color='white', alpha=0.3,
+            fontfamily='monospace',
+            transform=ax.transAxes, zorder=3)
+
+    sep_chars = "- " * 55
+    ax.text(0.5, 0.795, sep_chars,
+            ha='center', va='center',
+            fontsize=7, color='white', alpha=0.2,
+            fontfamily='monospace',
+            transform=ax.transAxes, zorder=3)
+
+    ax.text(0.5, 0.755,
+            "[ ARCHIVO CLASIFICADO — NIVEL MAXIMO — ACCESO RESTRINGIDO ]",
+            ha='center', va='center',
+            fontsize=8, color='white', alpha=0.4,
+            fontfamily='monospace',
+            transform=ax.transAxes, zorder=3)
+
+    # Texto principal con fondo para legibilidad
+    rect_bg = plt.Rectangle((0.15, 0.48), 0.70, 0.22,
+                            facecolor='black', alpha=0.65,
+                            transform=ax.transAxes, zorder=3)
+    ax.add_patch(rect_bg)
+
+    scrambled_init = _scramble_text(FRASE_RAW)
+    frase_text = ax.text(
+        0.5, 0.565,
+        scrambled_init,
+        ha='center', va='center',
+        fontsize=15, color='#00ffcc',
+        fontfamily='DejaVu Sans',
+        linespacing=1.8,
+        transform=ax.transAxes, zorder=4,
+        style='italic'
+    )
+
+    ax.text(0.5, 0.330,
+            "_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _",
+            ha='center', va='center',
+            fontsize=9, color='white', alpha=0.15,
+            fontfamily='monospace',
+            transform=ax.transAxes, zorder=3)
+
+    continuar_text = ax.text(
+        0.5, 0.265,
+        "Presiona cualquier tecla para continuar",
+        ha='center', va='center',
+        fontsize=12, color='white', alpha=0.0,
+        fontfamily='monospace',
+        transform=ax.transAxes, zorder=4
+    )
+
+    ax.text(0.5, 0.215,
+            "[ SISTEMA DE SIMULACION ESPACIAL — v3.0 ]",
+            ha='center', va='center',
+            fontsize=7, color='white', alpha=0.2,
+            fontfamily='monospace',
+            transform=ax.transAxes, zorder=3)
+    ax.text(0.06, 0.05,
+            "REF: BH-SIM-2024 / EYES ONLY",
+            ha='left', va='center',
+            fontsize=7, color='white', alpha=0.25,
+            fontfamily='monospace',
+            transform=ax.transAxes, zorder=3)
+    ax.text(0.94, 0.05,
+            "COORD: 00.0000N / 000.0000W",
+            ha='right', va='center',
+            fontsize=7, color='white', alpha=0.25,
+            fontfamily='monospace',
+            transform=ax.transAxes, zorder=3)
+
+    key_pressed = [False]
+
+    def on_key(event):
+        key_pressed[0] = True
+
+    fig_ts.canvas.mpl_connect('key_press_event', on_key)
+
+    plt.ion()
+    plt.show(block=False)
+
+    phase_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#@!%&*+-=~^<>[]{}|"
+    decryption_steps = 12
+    blink_counter = [0]
+
+    for step in range(decryption_steps):
+        if key_pressed[0]:
+            break
+        frac = step / decryption_steps
+        n_revealed = int(frac * len(FRASE_RAW))
+        scrambled = (FRASE_RAW[:n_revealed] +
+                     _scramble_text(FRASE_RAW[n_revealed:], phase_chars))
+        frase_text.set_text(scrambled)
+
+        blink_counter[0] += 1
+        if step > 5:
+            alpha_val = 0.5 + 0.5 * np.sin(blink_counter[0] * 0.8)
+            continuar_text.set_alpha(alpha_val)
+
+        fig_ts.canvas.draw()
+        fig_ts.canvas.flush_events()
+        time.sleep(0.05)
+
+    frase_text.set_text(FRASE_RAW)
+    continuar_text.set_alpha(1.0)
+    fig_ts.canvas.draw()
+    fig_ts.canvas.flush_events()
+
+    # Bucle infinito hasta que se presione una tecla (sin timeout)
+    while not key_pressed[0]:
+        blink_counter[0] += 1
+        alpha_val = 0.4 + 0.6 * abs(np.sin(blink_counter[0] * 0.3))
+        continuar_text.set_alpha(alpha_val)
+        fig_ts.canvas.draw()
+        fig_ts.canvas.flush_events()
+        time.sleep(0.05)
+
+    plt.close(fig_ts)
+    plt.ioff()
+
 
 def draw_stars(ax, n=300):
     """Genera un campo de estrellas aleatorio en el fondo."""
@@ -245,7 +438,8 @@ def draw_stars(ax, n=300):
     sz  = np.random.exponential(0.8, n) + 0.2
     alp = np.random.uniform(0.3, 1.0, n)
     ax.scatter(xs, ys, s=sz, c='white', alpha=alp,
-               transform=ax.transAxes, zorder=1)
+            transform=ax.transAxes, zorder=1)
+
 
 def draw_earth_arc(ax):
     """Dibuja un arco de la Tierra en la parte inferior."""
@@ -261,15 +455,15 @@ def draw_earth_arc(ax):
     )
     ax.plot(x, y, color='#1a6fa0', lw=1.5,
             alpha=0.8, transform=ax.transAxes, zorder=3)
-    # Atmósfera glow
     for i, (r_off, alp) in enumerate([(0.005, 0.15), (0.010, 0.10), (0.018, 0.05)]):
         xg = cx + (r + r_off) * np.cos(theta)
         yg = cy + (r + r_off) * np.sin(theta)
         ax.plot(xg, yg, color='#00aaff', lw=2 + i,
                 alpha=alp, transform=ax.transAxes, zorder=2)
 
+
 def show_countdown():
-    """Muestra la cuenta atrás sin cohete, solo elementos espaciales."""
+    """Muestra la cuenta atras sin cohete, solo elementos espaciales."""
     fig_cd = plt.figure(figsize=(14, 8), facecolor=C["bg_deep"])
     fig_cd.patch.set_facecolor(C["bg_deep"])
     ax = fig_cd.add_axes([0, 0, 1, 1])
@@ -281,7 +475,6 @@ def show_countdown():
     draw_stars(ax, n=350)
     draw_earth_arc(ax)
 
-    # Borde decorativo del panel central
     panel = FancyBboxPatch(
         (0.25, 0.20), 0.50, 0.62,
         boxstyle="round,pad=0.01",
@@ -291,7 +484,6 @@ def show_countdown():
     )
     ax.add_patch(panel)
 
-    # Líneas decorativas de esquina
     for (x0, x1, y0, y1) in [
         (0.25, 0.32, 0.82, 0.82), (0.68, 0.75, 0.82, 0.82),
         (0.25, 0.32, 0.20, 0.20), (0.68, 0.75, 0.20, 0.20),
@@ -301,14 +493,13 @@ def show_countdown():
         ax.plot([x0, x1], [y0, y1], color=C["accent"],
                 lw=2, alpha=0.7, transform=ax.transAxes, zorder=5)
 
-    # Títulos
-    ax.text(0.50, 0.895, "◈  MISSION CONTROL  ◈",
+    ax.text(0.50, 0.895, "MISSION CONTROL",
             ha='center', va='center', fontsize=9,
             color=C["accent"], alpha=0.8,
             fontfamily='monospace',
             transform=ax.transAxes, zorder=6)
 
-    ax.text(0.50, 0.84, "SIMULACIÓN DE\nTRAYECTORIA DE COHETE",
+    ax.text(0.50, 0.84, "SIMULACION DE\nTRAYECTORIA DE COHETE",
             ha='center', va='center', fontsize=18,
             fontweight='bold', color=C["text_hi"],
             linespacing=1.3,
@@ -320,13 +511,12 @@ def show_countdown():
             color=C["text_lo"], fontfamily='monospace',
             transform=ax.transAxes, zorder=6)
 
-    # Parámetros de misión (texto fijo)
     params = [
         ("MASA INICIAL",     f"{m0:.0f} kg"),
         ("EMPUJE NOMINAL",   f"{T_def:.0f} N"),
         ("ISP",              f"{Isp:.0f} s"),
         ("MODELO ATM.",      "ISA MULTICAPA"),
-        ("INTEGRADOR",       "EULER  Δt=0.1s"),
+        ("INTEGRADOR",       "EULER  dt=0.1s"),
         ("EFECTOS",          "CORIOLIS + DRAG"),
     ]
     col_w = 0.22
@@ -344,11 +534,9 @@ def show_countdown():
                 color=C["accent"], fontfamily='monospace', fontweight='bold',
                 transform=ax.transAxes, zorder=6)
 
-    # Separador
     ax.plot([0.30, 0.70], [0.495, 0.495], color=C["border"],
             lw=1, transform=ax.transAxes, zorder=6)
 
-    # Número de cuenta atrás
     count_text = ax.text(
         0.50, 0.395, "10",
         ha='center', va='center', fontsize=72,
@@ -362,7 +550,7 @@ def show_countdown():
     )
 
     label_text = ax.text(
-        0.50, 0.300, "T−10",
+        0.50, 0.300, "T-10",
         ha='center', va='center', fontsize=11,
         color=C["text_lo"], fontfamily='monospace',
         transform=ax.transAxes, zorder=6
@@ -375,7 +563,6 @@ def show_countdown():
         transform=ax.transAxes, zorder=6
     )
 
-    # Barra de progreso
     bar_bg = FancyBboxPatch(
         (0.30, 0.228), 0.40, 0.018,
         boxstyle="round,pad=0.002",
@@ -394,14 +581,14 @@ def show_countdown():
     status_msgs = [
         "TODOS LOS SISTEMAS NOMINALES",
         "COMPROBANDO PROPULSORES...",
-        "TELEMETRÍA ACTIVA",
+        "TELEMETRIA ACTIVA",
         "GUIADO INERCIAL OK",
         "COMBUSTIBLE AL 100%",
-        "SECUENCIA DE IGNICIÓN",
-        "PRESIÓN DE CÁMARA OK",
+        "SECUENCIA DE IGNICION",
+        "PRESION DE CAMARA OK",
         "VECTOR DE EMPUJE NOMINAL",
-        "¡ENCENDIDO MOTOR PRINCIPAL!",
-        "⚡  DESPEGUE CONFIRMADO  ⚡",
+        "ENCENDIDO MOTOR PRINCIPAL!",
+        "DESPEGUE CONFIRMADO",
     ]
     status_colors = [C["accent3"]] * 8 + [C["warn"], C["accent2"]]
 
@@ -412,8 +599,8 @@ def show_countdown():
     for i in range(total, -1, -1):
         frac = (total - i) / total
 
-        count_text.set_text(str(i) if i > 0 else "▲")
-        label_text.set_text(f"T−{i:02d}" if i > 0 else "LIFTOFF!")
+        count_text.set_text(str(i) if i > 0 else "^")
+        label_text.set_text(f"T-{i:02d}" if i > 0 else "LIFTOFF!")
         count_text.set_color(C["accent2"] if i <= 3 else C["accent"])
         label_text.set_color(C["accent2"] if i <= 0 else C["text_lo"])
 
@@ -431,9 +618,6 @@ def show_countdown():
     plt.close(fig_cd)
     plt.ioff()
 
-# ══════════════════════════════════════════════════════════════════
-#  HELPERS DE ESTILO PARA EL DASHBOARD
-# ══════════════════════════════════════════════════════════════════
 
 def style_ax(ax, xlabel, ylabel, title):
     """Aplica el tema HUD espacial a un eje 2D."""
@@ -444,20 +628,22 @@ def style_ax(ax, xlabel, ylabel, title):
     ax.set_xlabel(xlabel, fontsize=9.5, fontfamily='monospace')
     ax.set_ylabel(ylabel, fontsize=9.5, fontfamily='monospace')
     ax.set_title(title, fontsize=10.5, color=C["text_hi"],
-                 pad=7, fontfamily='monospace', fontweight='bold')
+                pad=7, fontfamily='monospace', fontweight='bold')
     ax.grid(True, alpha=0.12, color=C["accent"], linestyle='--', linewidth=0.5)
     for spine in ax.spines.values():
         spine.set_edgecolor(C["accent"])
         spine.set_linewidth(0.8)
         spine.set_alpha(0.5)
 
+
 def legend_style():
     return dict(fontsize=8.5, facecolor=C["bg_panel"],
                 labelcolor=C["text_hi"], edgecolor=C["accent"],
                 framealpha=0.85, prop={'family': 'monospace'})
 
+
 def add_hud_border(ax_obj):
-    """Añade esquinas decorativas HUD alrededor de un axes."""
+    """Anade esquinas decorativas HUD alrededor de un axes."""
     fig_obj = ax_obj.get_figure()
     pos     = ax_obj.get_position()
     x0, y0  = pos.x0, pos.y0
@@ -476,28 +662,23 @@ def add_hud_border(ax_obj):
     for (xs, ys) in corners:
         fig_obj.add_artist(
             plt.Line2D(xs, ys, color=C["accent"], lw=1.5,
-                       alpha=0.7, transform=fig_obj.transFigure, zorder=10)
+                    alpha=0.7, transform=fig_obj.transFigure, zorder=10)
         )
 
-# ══════════════════════════════════════════════════════════════════
-#  DASHBOARD — Figura principal (CORREGIDO: sin barras de color acumuladas)
-# ══════════════════════════════════════════════════════════════════
 
 def build_dashboard():
-    """Construye y muestra el dashboard interactivo de misión."""
+    """Construye y muestra el dashboard interactivo de mision."""
     global current_angle, current_view, sims
 
-    # Calcula simulaciones
     print("Calculando simulaciones...")
     run_all_sims(current_angle)
-    print(f"  Alt. máx.:   {sims['base']['max_alt'] / 1000:.2f} km")
+    print(f"  Alt. max.:   {sims['base']['max_alt'] / 1000:.2f} km")
     print(f"  T. de vuelo: {sims['base']['tf']:.1f} s")
     print(f"  Rango:       {np.sqrt(sims['base']['xf']**2 + sims['base']['yf']**2):.2f} m")
 
     fig = plt.figure(figsize=(15, 8.5))
     fig.patch.set_facecolor(C["bg_deep"])
 
-    # Fondo: campo de estrellas
     ax_bg = fig.add_axes([0, 0, 1, 1], zorder=0)
     ax_bg.set_facecolor(C["bg_deep"])
     ax_bg.axis('off')
@@ -507,30 +688,27 @@ def build_dashboard():
     sz  = np.random.exponential(0.6, 200) + 0.15
     alp = np.random.uniform(0.1, 0.5, 200)
     ax_bg.scatter(xs, ys, s=sz, c='white', alpha=alp,
-                  transform=ax_bg.transAxes, zorder=0)
+                transform=ax_bg.transAxes, zorder=0)
 
-    # Cabecera HUD
-    fig.text(0.50, 0.975, "◈  ROCKET TRAJECTORY SIMULATION  ·  MISSION CONTROL  ◈",
-             ha='center', va='top', fontsize=8, color=C["accent"],
-             fontfamily='monospace', alpha=0.7)
-    fig.text(0.50, 0.955, "SIMULACIÓN DE TRAYECTORIA DE COHETE",
-             ha='center', va='top', fontsize=15,
-             fontweight='bold', color=C["text_hi"],
-             fontfamily='monospace',
-             path_effects=[pe.withStroke(linewidth=5, foreground=C["bg_deep"])])
-    fig.text(0.015, 0.975, f"ÁNGULO  ▸  {current_angle:.1f}°",
-             ha='left', va='top', fontsize=7.5,
-             color=C["text_lo"], fontfamily='monospace')
-    fig.text(0.985, 0.975, "SYS  ▸  NOMINAL",
-             ha='right', va='top', fontsize=7.5,
-             color=C["accent3"], fontfamily='monospace')
+    fig.text(0.50, 0.975, "ROCKET TRAJECTORY SIMULATION  ·  MISSION CONTROL",
+            ha='center', va='top', fontsize=8, color=C["accent"],
+            fontfamily='monospace', alpha=0.7)
+    fig.text(0.50, 0.955, "SIMULACION DE TRAYECTORIA DE COHETE",
+            ha='center', va='top', fontsize=15,
+            fontweight='bold', color=C["text_hi"],
+            fontfamily='monospace',
+            path_effects=[pe.withStroke(linewidth=5, foreground=C["bg_deep"])])
+    fig.text(0.015, 0.975, f"ANGULO  >  {current_angle:.1f} grados",
+            ha='left', va='top', fontsize=7.5,
+            color=C["text_lo"], fontfamily='monospace')
+    fig.text(0.985, 0.975, "SYS  >  NOMINAL",
+            ha='right', va='top', fontsize=7.5,
+            color=C["accent3"], fontfamily='monospace')
 
-    # Área principal de gráfica
     ax_main = fig.add_axes([0.07, 0.22, 0.89, 0.685])
     ax_main.set_facecolor(C["bg_plot"])
-    ax_3d   = [None]   # lista mutable para closures
+    ax_3d   = [None]
 
-    # Panel de telemetría (info box)
     ax_info = fig.add_axes([0.07, 0.135, 0.89, 0.068])
     ax_info.set_facecolor(C["bg_panel"])
     ax_info.axis('off')
@@ -539,9 +717,9 @@ def build_dashboard():
         spine.set_linewidth(0.8)
         spine.set_alpha(0.4)
 
-    ax_info.text(0.002, 0.85, "TELEMETRÍA",
-                 transform=ax_info.transAxes,
-                 fontsize=6.5, color=C["accent"], fontfamily='monospace')
+    ax_info.text(0.002, 0.85, "TELEMETRIA",
+                transform=ax_info.transAxes,
+                fontsize=6.5, color=C["accent"], fontfamily='monospace')
 
     info_text = ax_info.text(
         0.5, 0.35, "",
@@ -552,35 +730,37 @@ def build_dashboard():
         fontweight='bold'
     )
 
-    ax_info.text(0.002, 0.15, "●  MOTOR OFF",
-                 transform=ax_info.transAxes,
-                 fontsize=6.5, color=C["accent2"], fontfamily='monospace')
-    ax_info.text(0.998, 0.15, "ISA  ●",
-                 transform=ax_info.transAxes,
-                 ha='right', fontsize=6.5, color=C["accent3"], fontfamily='monospace')
+    ax_info.text(0.002, 0.15, "MOTOR OFF",
+                transform=ax_info.transAxes,
+                fontsize=6.5, color=C["accent2"], fontfamily='monospace')
+    ax_info.text(0.998, 0.15, "ISA",
+                transform=ax_info.transAxes,
+                ha='right', fontsize=6.5, color=C["accent3"], fontfamily='monospace')
+
+    # Variables para mantener la barra de color fija
+    cbar = None
 
     def update_info():
         b   = sims["base"]
         rng = np.sqrt(b["xf"]**2 + b["yf"]**2)
         t_bo = (m0 - mp) * g0 * Isp / T_def
         info_text.set_text(
-            f"▸ ÁNGULO: {current_angle:.1f}°   "
-            f"▸ ALT. MÁX: {b['max_alt'] / 1000:.2f} km   "
-            f"▸ T. VUELO: {b['tf']:.1f} s   "
-            f"▸ RANGO: {rng:.1f} m   "
-            f"▸ VEL. MÁX: {np.max(b['vel']):.1f} m/s   "
-            f"▸ T. BURNOUT: {t_bo:.1f} s"
+            f">  ANGULO: {current_angle:.1f} grados   "
+            f">  ALT. MAX: {b['max_alt'] / 1000:.2f} km   "
+            f">  T. VUELO: {b['tf']:.1f} s   "
+            f">  RANGO: {rng:.1f} m   "
+            f">  VEL. MAX: {np.max(b['vel']):.1f} m/s   "
+            f">  T. BURNOUT: {t_bo:.1f} s"
         )
-        fig.text(0.015, 0.975, f"ÁNGULO  ▸  {current_angle:.1f}°",
-                 ha='left', va='top', fontsize=7.5,
-                 color=C["text_lo"], fontfamily='monospace')
+        fig.text(0.015, 0.975, f"ANGULO  >  {current_angle:.1f} grados",
+                ha='left', va='top', fontsize=7.5,
+                color=C["text_lo"], fontfamily='monospace')
 
-    def clear_main():
-        # Eliminar cualquier colorbar existente en la figura
+    def clear_main(keep_cbar=False):
+        # Elimina solo las colecciones y líneas, pero no la barra si se pide
         for cb in fig.get_axes():
-            if hasattr(cb, 'colorbar') and cb.colorbar is not None:
+            if not keep_cbar and hasattr(cb, 'colorbar') and cb.colorbar is not None:
                 cb.remove()
-        # Eliminar axes 3D si existe
         if ax_3d[0] is not None:
             fig.delaxes(ax_3d[0])
             ax_3d[0] = None
@@ -588,11 +768,12 @@ def build_dashboard():
         ax_main.set_visible(True)
         ax_main.set_facecolor(C["bg_plot"])
 
-    # Vistas
     def plot_altitud(event=None):
+        nonlocal cbar
         global current_view
         current_view = "altitud"
-        clear_main()
+        # Limpiar pero conservar la barra si ya existe
+        clear_main(keep_cbar=(cbar is not None))
         b = sims["base"]
         t, alt = b["t"], b["alt"] / 1000
 
@@ -619,9 +800,18 @@ def build_dashboard():
                         color=C["warn"], s=50, zorder=5)
 
         style_ax(ax_main, 'TIEMPO (s)', 'ALTITUD (km)', 'ALTITUD  vs  TIEMPO')
-        cbar = fig.colorbar(lc, ax=ax_main, pad=0.01, fraction=0.015)
-        cbar.ax.tick_params(colors=C["text_lo"], labelsize=7)
-        cbar.set_label('km', color=C["text_lo"], fontsize=7)
+
+        # Barra de color fija: si no existe, la creamos; si existe, actualizamos norm y colección
+        if cbar is None:
+            cbar = fig.colorbar(lc, ax=ax_main, pad=0.01, fraction=0.015)
+            cbar.ax.tick_params(colors=C["text_lo"], labelsize=7)
+            cbar.set_label('km', color=C["text_lo"], fontsize=7)
+        else:
+            # Actualizar la normalización de la barra y la colección
+            lc.set_norm(norm)
+            lc.set_array(alt[:-1])
+            cbar.update_normal(lc)
+
         update_info()
         fig.canvas.draw_idle()
 
@@ -636,7 +826,7 @@ def build_dashboard():
         ax_main.scatter([b["t"][idx_v]], [b["vel"][idx_v]],
                         color=C["warn"], s=55, zorder=5)
         ax_main.annotate(
-            f"  VEL. MÁX\n  {b['vel'][idx_v]:.1f} m/s",
+            f"  VEL. MAX\n  {b['vel'][idx_v]:.1f} m/s",
             xy=(b["t"][idx_v], b["vel"][idx_v]),
             xytext=(b["t"][idx_v] + b["t"].max() * 0.04, b["vel"][idx_v] * 0.92),
             fontsize=8, color=C["warn"], fontfamily='monospace',
@@ -653,7 +843,7 @@ def build_dashboard():
         b = sims["base"]
         ax_main.plot(b["t"], b["drag"], color=C["accent2"], lw=2, zorder=3)
         ax_main.fill_between(b["t"], b["drag"], alpha=0.08, color=C["accent2"])
-        style_ax(ax_main, 'TIEMPO (s)', 'ARRASTRE (N)', 'ARRASTRE AERODINÁMICO  vs  TIEMPO')
+        style_ax(ax_main, 'TIEMPO (s)', 'ARRASTRE (N)', 'ARRASTRE AERODINAMICO  vs  TIEMPO')
         update_info()
         fig.canvas.draw_idle()
 
@@ -663,7 +853,7 @@ def build_dashboard():
         clear_main()
         b = sims["base"]
         ax_main.plot(b["pos"][:, 0], b["pos"][:, 1],
-                     color='#ce93d8', lw=2, zorder=3)
+                    color='#ce93d8', lw=2, zorder=3)
         ax_main.scatter([0],        [0],
                         color=C["accent3"], s=70, zorder=5,
                         marker='^', label='INICIO')
@@ -672,7 +862,7 @@ def build_dashboard():
                         marker='v', label='ATERRIZAJE')
         ax_main.legend(**legend_style())
         style_ax(ax_main, 'x — ESTE (m)', 'y — NORTE (m)',
-                 'PROYECCIÓN HORIZONTAL  XY')
+                'PROYECCION HORIZONTAL  XY')
         update_info()
         fig.canvas.draw_idle()
 
@@ -691,23 +881,23 @@ def build_dashboard():
             t_frac = i / n
             col = plt.cm.cool(t_frac)
             ax_3d[0].plot(p[i:i+2, 0], p[i:i+2, 1],
-                          p[i:i+2, 2] / 1000,
-                          color=col, lw=1.5, alpha=0.8)
+                        p[i:i+2, 2] / 1000,
+                        color=col, lw=1.5, alpha=0.8)
         ax_3d[0].scatter([0], [0], [0],
-                         color=C["accent3"], s=60, zorder=5, label='INICIO')
+                        color=C["accent3"], s=60, zorder=5, label='INICIO')
         ax_3d[0].scatter([p[-1, 0]], [p[-1, 1]], [p[-1, 2] / 1000],
-                         color=C["accent2"], s=60, zorder=5, label='ATERRIZAJE')
+                        color=C["accent2"], s=60, zorder=5, label='ATERRIZAJE')
         ax_3d[0].plot(p[:, 0], p[:, 1],
-                      np.zeros(len(p)),
-                      color=C["accent"], lw=0.8, alpha=0.25,
-                      linestyle='--', label='Proy. suelo')
+                    np.zeros(len(p)),
+                    color=C["accent"], lw=0.8, alpha=0.25,
+                    linestyle='--', label='Proy. suelo')
         for ax_label, lbl in zip(
             [ax_3d[0].set_xlabel, ax_3d[0].set_ylabel, ax_3d[0].set_zlabel],
             ['x — ESTE (m)', 'y — NORTE (m)', 'ALTITUD (km)']
         ):
             ax_label(lbl, fontsize=8, color=C["text_lo"], fontfamily='monospace')
         ax_3d[0].set_title('TRAYECTORIA 3D  DEL  COHETE',
-                           fontsize=10, color=C["text_hi"], fontfamily='monospace')
+                        fontsize=10, color=C["text_hi"], fontfamily='monospace')
         ax_3d[0].tick_params(colors=C["text_lo"], labelsize=7)
         ax_3d[0].legend(**legend_style())
         update_info()
@@ -723,7 +913,7 @@ def build_dashboard():
         ax_main.plot(t3["t"], t3["alt"] / 1000, color=C["T3000"], lw=2, ls='-.',  label='T = 3000 N')
         ax_main.legend(**legend_style())
         style_ax(ax_main, 'TIEMPO (s)', 'ALTITUD (km)',
-                 'T1  —  EFECTO DEL EMPUJE')
+                'T1  —  EFECTO DEL EMPUJE')
         update_info()
         fig.canvas.draw_idle()
 
@@ -733,12 +923,12 @@ def build_dashboard():
         clear_main()
         b, nc = sims["base"], sims["noC"]
         ax_main.plot(b["pos"][:, 0],  b["pos"][:, 1],
-                     color=C["base"], lw=2,          label='CON CORIOLIS')
+                    color=C["base"], lw=2,          label='CON CORIOLIS')
         ax_main.plot(nc["pos"][:, 0], nc["pos"][:, 1],
-                     color=C["noC"],  lw=2, ls='--', label='SIN CORIOLIS  (ω = 0)')
+                    color=C["noC"],  lw=2, ls='--', label='SIN CORIOLIS  (omega = 0)')
         ax_main.legend(**legend_style())
         style_ax(ax_main, 'x — ESTE (m)', 'y — NORTE (m)',
-                 'T2  —  EFECTO CORIOLIS')
+                'T2  —  EFECTO CORIOLIS')
         update_info()
         fig.canvas.draw_idle()
 
@@ -748,12 +938,12 @@ def build_dashboard():
         clear_main()
         b, ea = sims["base"], sims["expAtm"]
         ax_main.plot(b["t"],  b["drag"],
-                     color=C["base"],   lw=2,          label='MODELO ISA  (BASE)')
+                    color=C["base"],   lw=2,          label='MODELO ISA  (BASE)')
         ax_main.plot(ea["t"], ea["drag"],
-                     color=C["expAtm"], lw=2, ls='--', label='EXPONENCIAL SIMPLE')
+                    color=C["expAtm"], lw=2, ls='--', label='EXPONENCIAL SIMPLE')
         ax_main.legend(**legend_style())
         style_ax(ax_main, 'TIEMPO (s)', 'ARRASTRE (N)',
-                 'T3  —  MODELOS ATMOSFÉRICOS')
+                'T3  —  MODELOS ATMOSFERICOS')
         update_info()
         fig.canvas.draw_idle()
 
@@ -767,7 +957,7 @@ def build_dashboard():
         ax_main.plot(m90["t"], m90["alt"] / 1000, color=C["mp90"], lw=2, ls='-.',  label='90 kg  PROPELENTE')
         ax_main.legend(**legend_style())
         style_ax(ax_main, 'TIEMPO (s)', 'ALTITUD (km)',
-                 'T4  —  MASA DE PROPELENTE')
+                'T4  —  MASA DE PROPELENTE')
         update_info()
         fig.canvas.draw_idle()
 
@@ -783,7 +973,6 @@ def build_dashboard():
         "masa":      plot_masa,
     }
 
-    # Slider de ángulo
     ax_slider = fig.add_axes([0.20, 0.032, 0.60, 0.022])
     ax_slider.set_facecolor(C["bg_deep"])
     slider_angle = Slider(
@@ -793,20 +982,19 @@ def build_dashboard():
     )
     slider_angle.label.set_color(C["text_lo"])
     slider_angle.valtext.set_color(C["accent"])
-    fig.text(0.145, 0.040, "ÁNGULO  (°)",
-             ha='right', va='center', fontsize=7.5,
-             color=C["text_lo"], fontfamily='monospace')
+    fig.text(0.145, 0.040, "ANGULO  (grados)",
+            ha='right', va='center', fontsize=7.5,
+            color=C["text_lo"], fontfamily='monospace')
 
     def on_angle_change(val):
         global current_angle
         current_angle = slider_angle.val
-        print(f"Recalculando ángulo = {current_angle:.1f}°...")
+        print(f"Recalculando angulo = {current_angle:.1f} grados...")
         run_all_sims(current_angle)
         VIEW_FUNCS[current_view]()
 
     slider_angle.on_changed(on_angle_change)
 
-    # Botones de navegación
     btn_data = [
         ('ALTITUD',      plot_altitud),
         ('VELOCIDAD',    plot_velocidad),
@@ -815,7 +1003,7 @@ def build_dashboard():
         ('3D',           plot_3d),
         ('T1: EMPUJE',   plot_empuje),
         ('T2: CORIOLIS', plot_coriolis),
-        ('T3: ATMÓSF.',  plot_atmosfera),
+        ('T3: ATMOSF.',  plot_atmosfera),
         ('T4: MASA',     plot_masa),
     ]
 
@@ -841,50 +1029,51 @@ def build_dashboard():
     plot_altitud()
     plt.show()
 
-# ══════════════════════════════════════════════════════════════════
-#  SIMULACIÓN ORBITAL ALREDEDOR DE UN AGUJERO NEGRO
-# ══════════════════════════════════════════════════════════════════
 
 def black_hole_simulation():
     """
-    Simulación interactiva 3D de una nave orbitando un agujero negro.
-    Parámetros ajustables: distancia inicial (r0) y velocidad tangencial (v0).
+    Simulacion interactiva 3D de una nave orbitando un agujero negro.
+
+    Parametros ajustables:
+    - Radio inicial (r0): distancia al agujero negro.
+    - Velocidad tangencial (v0): modulo de la velocidad inicial.
+
     Muestra si la nave cae, orbita o escapa.
+    Controles: Play, Pause, Reset via botones o teclado (P / R).
     """
-    # Parámetros físicos (unidades normalizadas)
-    GM_bh = 1.0          # Parámetro gravitacional (escala visual)
-    horizon = 0.5        # Radio del horizonte de sucesos
+    GM_bh   = 1.0
+    horizon = 0.5
 
-    # Configuración de la animación
-    speed = 20.0         # Factor de aceleración temporal
-    dt = 0.01 * speed    # Paso de tiempo integración
+    # Velocidad visual incrementada (factor x4 respecto al original)
+    speed = 80.0
+    dt    = 0.01 * speed
 
-    # Estado inicial (se actualizará con sliders)
     r0 = 3.0
-    v0 = np.sqrt(GM_bh / r0)   # velocidad circular
+    v0_init = np.sqrt(GM_bh / r0)
 
-    pos = np.array([r0, 0.0, 0.0])
-    vel = np.array([0.0, v0, 0.0])
-    trail = []           # lista de posiciones para la estela
+    sim_state = {
+        "pos":       np.array([r0, 0.0, 0.0]),
+        "vel":       np.array([0.0, v0_init, 0.0]),
+        "trail":     [],
+        "running":   True,
+        "fall_stop": False,
+    }
 
-    # Crear figura y ejes 3D
     fig = plt.figure(figsize=(12, 8))
     fig.patch.set_facecolor(C["bg_deep"])
-    ax = fig.add_axes([0.05, 0.15, 0.70, 0.75], projection='3d')
+
+    ax = fig.add_axes([0.05, 0.15, 0.60, 0.75], projection='3d')
     ax.set_facecolor(C["bg_deep"])
-    ax.set_title("ÓRBITA ALREDEDOR DE UN AGUJERO NEGRO", fontsize=14,
-                 color=C["text_hi"], fontfamily='monospace', pad=20)
+    ax.set_title("ORBITA ALREDEDOR DE UN AGUJERO NEGRO", fontsize=14,
+                color=C["text_hi"], fontfamily='monospace', pad=20)
     ax.set_xlabel("X (uds)", fontsize=9, color=C["text_lo"])
     ax.set_ylabel("Y (uds)", fontsize=9, color=C["text_lo"])
     ax.set_zlabel("Z (uds)", fontsize=9, color=C["text_lo"])
     ax.tick_params(colors=C["text_lo"], labelsize=7)
-
-    # Límites de la escena
     ax.set_xlim(-6, 6)
     ax.set_ylim(-6, 6)
     ax.set_zlim(-3, 3)
 
-    # Dibujar agujero negro (esfera negra con anillo de acreción)
     u = np.linspace(0, 2 * np.pi, 50)
     v = np.linspace(0, np.pi, 30)
     x_sphere = horizon * np.outer(np.cos(u), np.sin(v))
@@ -893,7 +1082,6 @@ def black_hole_simulation():
     ax.plot_surface(x_sphere, y_sphere, z_sphere, color='black', alpha=0.9,
                     edgecolor='none', zorder=1)
 
-    # Anillo de acreción (disco brillante)
     theta_accretion = np.linspace(0, 2*np.pi, 100)
     r_accretion = np.linspace(0.6, 1.2, 20)
     R, Theta = np.meshgrid(r_accretion, theta_accretion)
@@ -902,128 +1090,185 @@ def black_hole_simulation():
     Z_acc = np.zeros_like(X_acc) * 0.05
     ax.plot_surface(X_acc, Y_acc, Z_acc, color=C["accent"], alpha=0.3,
                     edgecolor='none', zorder=0)
-    # Aro brillante
+
     ring_theta = np.linspace(0, 2*np.pi, 200)
     ring_x = 0.9 * np.cos(ring_theta)
     ring_y = 0.9 * np.sin(ring_theta)
     ring_z = np.zeros_like(ring_theta)
     ax.plot(ring_x, ring_y, ring_z, color=C["accent2"], lw=2, alpha=0.8)
 
-    # Nave (punto rojo)
     ship_point, = ax.plot([], [], [], 'ro', markersize=8, zorder=5)
     trail_line, = ax.plot([], [], [], color=C["accent"], lw=1, alpha=0.7)
 
-    # Texto de estado
-    status_text = fig.text(0.05, 0.02, "", fontsize=10,
-                           color=C["text_hi"], fontfamily='monospace')
+    status_text = fig.text(0.05, 0.02, "", fontsize=9,
+                        color=C["text_hi"], fontfamily='monospace')
 
-    # Sliders y botón (colocados en el lado derecho) - con etiquetas claras
-    ax_slider_r = plt.axes([0.78, 0.75, 0.18, 0.03], facecolor=C["bg_panel"])
-    ax_slider_v = plt.axes([0.78, 0.68, 0.18, 0.03], facecolor=C["bg_panel"])
-    slider_r = Slider(ax_slider_r, "Radio inicial (r0) [uds]", 1.5, 8.0,
-                      valinit=r0, valstep=0.1, color=C["accent"])
-    slider_v = Slider(ax_slider_v, "Velocidad tangencial (v0) [uds/s]", 0.0, 2.5,
-                      valinit=v0, valstep=0.01, color=C["accent"])
+    # Etiquetas con valores en tiempo real de radio y velocidad
+    label_r = fig.text(0.68, 0.92,
+                    "Radio (r):  ---",
+                    fontsize=10, color=C["accent"],
+                    fontfamily='monospace', fontweight='bold')
+    label_v = fig.text(0.68, 0.88,
+                    "Velocidad (|v|):  ---",
+                    fontsize=10, color=C["accent3"],
+                    fontfamily='monospace', fontweight='bold')
 
-    # Añadir texto explicativo de los sliders
-    fig.text(0.78, 0.80, "↑ MAYOR radio = órbita más amplia, menos atracción",
-             fontsize=7, color=C["text_lo"], fontfamily='monospace')
-    fig.text(0.78, 0.73, "↑ MAYOR velocidad = más energía (escape o elipse)",
-             fontsize=7, color=C["text_lo"], fontfamily='monospace')
+    # Sliders en el panel derecho
+    ax_slider_r = plt.axes([0.70, 0.78, 0.25, 0.028], facecolor=C["bg_panel"])
+    ax_slider_v = plt.axes([0.70, 0.70, 0.25, 0.028], facecolor=C["bg_panel"])
 
-    # Botón de reinicio
-    ax_reset = plt.axes([0.78, 0.60, 0.18, 0.05])
-    reset_btn = Button(ax_reset, "RESET", color=C["bg_panel"], hovercolor='#0d2d4a')
-    reset_btn.label.set_color(C["accent"])
-    reset_btn.label.set_fontsize(8)
+    slider_r = Slider(
+        ax_slider_r,
+        "Radio inicial r0",
+        1.5, 8.0,
+        valinit=r0, valstep=0.1,
+        color=C["accent"]
+    )
+    slider_r.label.set_color(C["text_lo"])
+    slider_r.label.set_fontsize(8)
+    slider_r.valtext.set_color(C["accent"])
 
-    # Variables de control de animación
-    running = True
-    fall_stop = False
+    slider_v = Slider(
+        ax_slider_v,
+        "Velocidad inicial v0",
+        0.0, 2.5,
+        valinit=v0_init, valstep=0.01,
+        color=C["accent3"]
+    )
+    slider_v.label.set_color(C["text_lo"])
+    slider_v.label.set_fontsize(8)
+    slider_v.valtext.set_color(C["accent3"])
 
-    def reset_sim(event=None):
-        nonlocal pos, vel, trail, running, fall_stop
-        r0_new = slider_r.val
-        v0_new = slider_v.val
-        pos = np.array([r0_new, 0.0, 0.0])
-        vel = np.array([0.0, v0_new, 0.0])
-        trail = []
-        fall_stop = False
-        running = True
-        # Actualizar texto de referencia
-        v_circ = np.sqrt(GM_bh / r0_new)
-        v_esc = np.sqrt(2 * GM_bh / r0_new)
-        status_text.set_text(
-            f"Referencia: v_circ = {v_circ:.3f}  |  v_esc = {v_esc:.3f}\n"
-            f"Estado: Reiniciado"
-        )
-        # Limpiar estela
+    fig.text(0.70, 0.815,
+            "Mayor r0 = orbita mas amplia",
+            fontsize=7, color=C["text_lo"], fontfamily='monospace')
+    fig.text(0.70, 0.735,
+            "Mayor v0 = mas energia (escape/elipse)",
+            fontsize=7, color=C["text_lo"], fontfamily='monospace')
+
+    # Botones Play / Pause / Reset
+    ax_play  = plt.axes([0.70, 0.59, 0.07, 0.050])
+    ax_pause = plt.axes([0.79, 0.59, 0.07, 0.050])
+    ax_reset = plt.axes([0.88, 0.59, 0.07, 0.050])
+
+    btn_play  = Button(ax_play,  "PLAY",  color=C["bg_panel"], hovercolor='#0d3a1a')
+    btn_pause = Button(ax_pause, "PAUSE", color=C["bg_panel"], hovercolor='#3a2a0d')
+    btn_reset = Button(ax_reset, "RESET", color=C["bg_panel"], hovercolor='#0d2d4a')
+
+    for btn, col in [(btn_play, C["accent3"]), (btn_pause, C["warn"]), (btn_reset, C["accent"])]:
+        btn.label.set_color(col)
+        btn.label.set_fontsize(8)
+        btn.label.set_fontfamily('monospace')
+
+    fig.text(0.70, 0.555,
+            "Teclado:  P = Play/Pause   R = Reset",
+            fontsize=7, color=C["text_lo"], fontfamily='monospace')
+
+    def do_reset(new_r0=None, new_v0=None):
+        r0_new = new_r0 if new_r0 is not None else slider_r.val
+        v0_new = new_v0 if new_v0 is not None else slider_v.val
+        sim_state["pos"]       = np.array([r0_new, 0.0, 0.0])
+        sim_state["vel"]       = np.array([0.0, v0_new, 0.0])
+        sim_state["trail"]     = []
+        sim_state["fall_stop"] = False
+        sim_state["running"]   = True
         trail_line.set_data([], [])
         trail_line.set_3d_properties([])
+        v_circ = np.sqrt(GM_bh / r0_new)
+        v_esc  = np.sqrt(2 * GM_bh / r0_new)
+        status_text.set_text(
+            f"Referencia: v_circ = {v_circ:.3f}  |  v_esc = {v_esc:.3f}  |  Estado: Reiniciado"
+        )
 
-    reset_btn.on_clicked(reset_sim)
+    def on_play(event=None):
+        sim_state["running"]   = True
+        sim_state["fall_stop"] = False
 
-    # Función de actualización de la animación
+    def on_pause(event=None):
+        sim_state["running"] = False
+
+    def on_reset(event=None):
+        do_reset()
+
+    btn_play.on_clicked(on_play)
+    btn_pause.on_clicked(on_pause)
+    btn_reset.on_clicked(on_reset)
+
+    def on_key(event):
+        if event.key in ('p', 'P'):
+            if sim_state["running"]:
+                on_pause()
+            else:
+                on_play()
+        elif event.key in ('r', 'R'):
+            on_reset()
+
+    fig.canvas.mpl_connect('key_press_event', on_key)
+
     def update(frame):
-        nonlocal pos, vel, trail, running, fall_stop
-        if not running or fall_stop:
+        state = sim_state
+        pos   = state["pos"]
+        vel   = state["vel"]
+
+        # Siempre actualizamos las etiquetas de radio y velocidad
+        r_cur   = np.linalg.norm(pos)
+        v_cur   = np.linalg.norm(vel)
+        label_r.set_text(f"Radio actual (r):      {r_cur:.4f} uds")
+        label_v.set_text(f"Velocidad actual (|v|): {v_cur:.4f} uds/s")
+
+        if not state["running"] or state["fall_stop"]:
             return
 
-        r = np.linalg.norm(pos)
+        r = r_cur
         if r < horizon + 0.1:
-            fall_stop = True
+            state["fall_stop"] = True
             status_text.set_text(
-                f"⚠️  ¡LA NAVE HA CRUZADO EL HORIZONTE!\n"
-                f"Destrucción inevitable."
+                "AVISO: LA NAVE HA CRUZADO EL HORIZONTE DE SUCESOS!\n"
+                "Destruccion inevitable."
             )
             return
 
-        # Aceleración gravitacional (newtoniana)
         a = -GM_bh / (r**3) * pos
 
-        # Integración Euler
-        vel += a * dt
-        pos += vel * dt
+        state["vel"] = vel + a * dt
+        state["pos"] = pos + state["vel"] * dt
 
-        # Guardar trayectoria
-        trail.append(pos.copy())
-        if len(trail) > 500:
-            trail.pop(0)
+        state["trail"].append(state["pos"].copy())
+        if len(state["trail"]) > 600:
+            state["trail"].pop(0)
 
-        # Actualizar gráficos
-        ship_point.set_data([pos[0]], [pos[1]])
-        ship_point.set_3d_properties([pos[2]])
-        if len(trail) > 1:
-            trail_arr = np.array(trail)
+        ship_point.set_data([state["pos"][0]], [state["pos"][1]])
+        ship_point.set_3d_properties([state["pos"][2]])
+
+        if len(state["trail"]) > 1:
+            trail_arr = np.array(state["trail"])
             trail_line.set_data(trail_arr[:, 0], trail_arr[:, 1])
             trail_line.set_3d_properties(trail_arr[:, 2])
 
-        # Calcular velocidades características
-        v_mag = np.linalg.norm(vel)
+        v_mag  = np.linalg.norm(state["vel"])
         v_circ = np.sqrt(GM_bh / r)
-        v_esc = np.sqrt(2 * GM_bh / r)
+        v_esc  = np.sqrt(2 * GM_bh / r)
+
         if v_mag > v_esc:
-            state = "🚀 ¡ESCAPANDO!  (velocidad superior a escape)"
+            state_str = "ESCAPANDO  (velocidad > escape)"
         elif v_mag > v_circ:
-            state = "🛰️  Órbita elíptica / escapando?"
+            state_str = "Orbita eliptica / escapando?"
         else:
-            state = "🛸 En órbita estable"
+            state_str = "En orbita estable"
 
         status_text.set_text(
-            f"r = {r:.2f}   |   v = {v_mag:.3f}\n"
-            f"v_circ = {v_circ:.3f}   v_esc = {v_esc:.3f}\n"
-            f"{state}"
+            f"r = {r:.3f} uds   |   |v| = {v_mag:.4f} uds/s\n"
+            f"v_circ = {v_circ:.3f}   |   v_esc = {v_esc:.3f}\n"
+            f"Estado: {state_str}"
         )
 
-    # Iniciar animación
-    ani = FuncAnimation(fig, update, interval=20, cache_frame_data=False)
+    # Intervalo reducido para mayor velocidad visual (de 20ms a 8ms)
+    ani = FuncAnimation(fig, update, interval=8, cache_frame_data=False)
     plt.show()
 
-# ══════════════════════════════════════════════════════════════════
-#  PUNTO DE ENTRADA
-# ══════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     show_countdown()
     build_dashboard()
+    show_top_secret_intro()
     black_hole_simulation()
