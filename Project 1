@@ -103,3 +103,104 @@ ax2.grid(True, alpha=0.3)
 plt.tight_layout()
 
 plt.show()
+# Physical parameters from the assignment guidelines
+m = 1.0       # Mass in kg
+b = 0.1       # Drag coefficient in kg/s
+tfinal_f = 4.0
+dt_f = tfinal_f / 4000
+
+# Initialize vectors for the friction simulation
+time_f = np.arange(0, tfinal_f, dt_f)
+lal_f = time_f.size
+
+xx_f = np.zeros(lal_f)
+vx_f = np.zeros(lal_f)
+ax_f = np.zeros(lal_f)  # Array to store variable acceleration at each step
+
+# Same initial conditions as Section 2
+xx_f[0] = 0.0
+vx_f[0] = 10.0
+xmax_f = 0.0
+vxmax_f = 10.0
+
+# Numerical loop using Euler-Cromer's integration method
+j = 1
+# The while loop terminates automatically upon hitting the ground
+while j < len(time_f) and xx_f[j-1] > -0.0001:
+    # Equation of motion: a = F/m = (-mg - bv)/m = -g - (b/m)*v
+    ax_f[j-1] = -g - (b / m) * vx_f[j-1]
+    
+    # Velocity numerical update
+    vx_f[j] = vx_f[j-1] + ax_f[j-1] * dt_f
+    if vx_f[j] > vxmax_f:
+        vxmax_f = vx_f[j]
+        
+    # Position numerical update using the newly computed velocity vx_f[j]
+    xx_f[j] = xx_f[j-1] + vx_f[j] * dt_f
+    if xx_f[j] > xmax_f:
+        xmax_f = xx_f[j]
+        
+    j = j + 1
+
+# Calculate the final acceleration point after exiting the loop
+ax_f[j-1] = -g - (b / m) * vx_f[j-1]
+
+# Slice arrays to clip data at ground level impact
+t_plot_f = time_f[:j]
+xx_plot_f = xx_f[:j]
+vx_plot_f = vx_f[:j]
+ax_plot_f = ax_f[:j]
+
+tfinreal_f = t_plot_f[-1]
+xfinreal_f = xx_plot_f[-1]
+
+# Print friction simulation results to the console
+print('The number of time steps is:', j)
+print('The time of flight (with friction) is:', round(tfinreal_f, 2), 's')
+print('The range (with friction) is:', round(xfinreal_f, 2), 'm')
+print('The maximum height (with friction) is:', round(xmax_f, 2), 'm\n')
+
+# Exact analytical solution for linear drag
+term_v = 10.0 + (m * g / b)
+v_analytical = term_v * np.exp(-(b / m) * t_plot_f) - (m * g / b)
+x_analytical = 0.0 + (m / b) * term_v * (1.0 - np.exp(-(b / m) * t_plot_f)) - (m * g / b) * t_plot_f
+a_analytical = -g - (b / m) * v_analytical
+
+
+# --- SEPARATE PLOTS FOR SECTION 3 ---
+
+# Figure 3: Acceleration vs Time (With Friction)
+plt.figure(3, figsize=(8, 4))
+plt.plot(t_plot_f, ax_plot_f, 'k', linewidth=2, label='Numerical (Euler)')
+plt.plot(t_plot_f, a_analytical, 'tomato', linewidth=1.5, linestyle='--', label='Analytical')
+plt.ylabel('Acceleration (m/s²)', fontsize=12)
+plt.xlabel('Time (s)', fontsize=12)
+plt.title('Section 3 — Acceleration vs Time (With Friction)\nNumerical vs Analytical', fontsize=13)
+plt.legend(fontsize=10)
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+
+# Figure 4: Velocity vs Time (With Friction)
+plt.figure(4, figsize=(8, 4))
+plt.plot(t_plot_f, vx_plot_f, 'k', linewidth=2, label='Numerical (Euler)')
+plt.plot(t_plot_f, v_analytical, 'tomato', linewidth=1.5, linestyle='--', label='Analytical')
+plt.ylabel('Velocity (m/s)', fontsize=12)
+plt.xlabel('Time (s)', fontsize=12)
+plt.title('Section 3 — Velocity vs Time (With Friction)\nNumerical vs Analytical', fontsize=13)
+plt.legend(fontsize=10)
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+
+# Figure 5: Position vs Time (With Friction)
+plt.figure(5, figsize=(8, 4))
+plt.plot(t_plot_f, xx_plot_f, 'k', linewidth=2, label='Numerical (Euler)')
+plt.plot(t_plot_f, x_analytical, 'tomato', linewidth=1.5, linestyle='--', label='Analytical')
+plt.ylabel('Position (m)', fontsize=12)
+plt.xlabel('Time (s)', fontsize=12)
+plt.title('Section 3 — Position vs Time (With Friction)\nNumerical vs Analytical', fontsize=13)
+plt.legend(fontsize=10)
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+
+# Show all windows simultaneously
+plt.show()
